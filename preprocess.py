@@ -9,8 +9,11 @@ import numpy as np
 import scipy
 import scipy.signal
 import scipy.fftpack
+import librosa
 import argparse
+import hparam
 from keras.models import load_model
+import matplotlib.pyplot as plt
 
 
 def STFT(x, fr, fs, Hop, h):
@@ -26,10 +29,19 @@ def STFT(x, fr, fs, Hop, h):
         tau = np.arange(int(-min([round(N / 2.0) - 1, Lh, ti - 1])), \
                         int(min([round(N / 2.0) - 1, Lh, len(x) - ti])))
         indices = np.mod(N + tau, N) + 1
+
+        # indices =np.arange(1, len(tau)+1)
         tfr[indices - 1, icol] = x[ti + tau - 1] * h[Lh + tau - 1] \
                                  / np.linalg.norm(h[Lh + tau - 1])
 
     tfr = abs(scipy.fftpack.fft(tfr, n=N, axis=0))
+
+    plt.figure(num='spec', figsize=(8, 8))
+    plt.subplot(4, 2, 1)
+    plt.title('stft')
+    plt.imshow(tfr)
+
+    # plt.show()
     return tfr, f, t, N
 
 
@@ -110,7 +122,33 @@ def CFP_filterbank(x, fr, fs, Hop, h, fc, tc, g, NumPerOctave):
     NumofLayer = np.size(g)
 
     [tfr, f, t, N] = STFT(x, fr, fs, Hop, h)
-    tfr = np.power(abs(tfr), g[0])
+    lib_stft = abs(librosa.stft(x,n_fft=int(fs//fr),win_length=len(h), hop_length= Hop, center=False, ))
+    lib_stft_re = lib_stft.real
+    lib_stft_mag, phase = librosa.magphase(lib_stft)
+
+    plt.subplot(4, 2, 2)
+    plt.title('libre_stft')
+    plt.imshow(lib_stft_re)
+    # plt.show()
+    plt.subplot(4, 2, 3)
+    plt.title('libmag_stft')
+    plt.imshow(lib_stft_mag)
+    # plt.show()
+    lib_stft_mag = np.real(np.fft.fft(lib_stft_mag, axis=0)) / np.sqrt(N)
+    lib_stft_mag = nonlinear_func(lib_stft_mag, g[1], round(fs * tc))
+    plt.subplot(4, 2, 4)
+    plt.title('libmag_stft_ft1')
+    plt.imshow(lib_stft_mag)
+    # plt.show()
+
+    lib_stft_mag = np.real(np.fft.fft(lib_stft_mag, axis=0)) / np.sqrt(N)
+    lib_stft_mag = nonlinear_func(lib_stft_mag, g[1], round(fs * tc))
+    plt.subplot(4, 2, 5)
+    plt.title('libmag_stft_ft2')
+    plt.imshow(lib_stft_mag)
+    # plt.show()
+
+    tfr = np.power(abs(tfr), g[2])
     tfr0 = tfr  # original STFT
     ceps = np.zeros(tfr.shape)
 
@@ -120,10 +158,18 @@ def CFP_filterbank(x, fr, fs, Hop, h, fc, tc, g, NumPerOctave):
                 tc_idx = round(fs * tc)
                 ceps = np.real(np.fft.fft(tfr, axis=0)) / np.sqrt(N)
                 ceps = nonlinear_func(ceps, g[gc], tc_idx)
+                plt.subplot(4, 2, 6)
+                plt.title('ceps')
+                plt.imshow(ceps)
+                # plt.show()
             else:
                 fc_idx = round(fc / fr)
                 tfr = np.real(np.fft.fft(ceps, axis=0)) / np.sqrt(N)
                 tfr = nonlinear_func(tfr, g[gc], fc_idx)
+                plt.subplot(4, 2, 7)
+                plt.title('tfr')
+                plt.imshow(tfr)
+                # plt.show()
 
     tfr0 = tfr0[:int(round(N / 2)), :]
     tfr = tfr[:int(round(N / 2)), :]
@@ -145,10 +191,10 @@ def CFP_filterbank(x, fr, fs, Hop, h, fc, tc, g, NumPerOctave):
 
 
 def full_feature_extraction(filename):
-    x, fs = sf.read(filename)
-    if x.shape[1] > 1:
-        x = np.mean(x, axis=1)
-    x = scipy.signal.resample_poly(x, 16000, fs)
+    x, fs = librosa.load(filename, sr = hparam.sr)
+    # if x.shape[1] > 1:
+    #     x = np.mean(x, axis=1)
+    # x = scipy.signal.resample_poly(x, 16000, fs)
     fs = 16000.0  # sampling frequency
     x = x.astype('float32')
     Hop = 320  # hop size (in sample)
@@ -188,7 +234,7 @@ def full_feature_extraction(filename):
     # input("check ...")
 
     # return Z, CenFreq, tfrL0, tfrLF, tfrLQ
-    return SN_SIN_ZN, Z1, CenFreq1
+    return SN_SIN_ZN, Z1, CenFreq1  # (1566,1290)
 
 
 def gen_spectral_flux(S, invert=False, norm=True):
@@ -208,10 +254,10 @@ def gen_spectral_flux(S, invert=False, norm=True):
 
 
 def feature_extraction(filename):
-    x, fs = sf.read(filename)
-    if x.shape[1] > 1:
-        x = np.mean(x, axis=1)
-    x = scipy.signal.resample_poly(x, 16000, fs)
+    x, fs = librosa.load(filename, sr = hparam.sr)
+    # if x.shape[1] > 1:
+    #     x = np.mean(x, axis=1)
+    # x = scipy.signal.resample_poly(x, 16000, fs)
     fs = 16000.0  # sampling frequency
     x = x.astype('float32')
     Hop = 320  # hop size (in sample)
@@ -365,7 +411,7 @@ def melody_extraction(infile, outfile):
     # melody_extraction(‘path1/input.wav’, ‘path2/output.txt’)
     patch_size = 25
     th = 0.5
-    modelname = 'model/model3_patch25'
+    modelname = 'checkpoint/model3_patch25'
     max_method = 'posterior'
     # print('Feature extraction of ' + infile)
     print('Feature Extraction: Extracting Pitch Contour ...')
@@ -382,7 +428,9 @@ def melody_extraction(infile, outfile):
                                     CenFreq, max_method)
         postgram = show_prediction(mapping, pred, N, half_ps, Z, t)
     # print(result.shape)
-    np.savetxt(outfile, result)
+    np.save(outfile, result)
+    np.savetxt(f'{outfile[:-3]}txt', result)
+    p = np.load(outfile)
     return result, postgram, Z, tfrL0, tfrLF, tfrLQ, t, CenFreq
 
 
@@ -395,9 +443,14 @@ def output_feature_extraction(infile, outfile_feat, outfile_z, outfile_cf):
     # print(CenFreq)
     # input()
     # print(Z.shape)
-    np.savetxt(outfile_feat, SN_SIN_ZN)
-    np.savetxt(outfile_z, Z1)
-    np.savetxt(outfile_cf, CenFreq1)
+    np.save(outfile_feat, SN_SIN_ZN)
+    np.save(outfile_z, Z1)
+    np.save(outfile_cf, CenFreq1)
+
+    a = np.load(outfile_feat)
+    b = np.load(outfile_z)
+    c = np.load(outfile_cf)
+
     # np.savetxt(outfile_t, t)
     # np.savetxt(outfile_f, f)
     # np.savetxt(outfile_s, tfrL0)
@@ -429,11 +482,18 @@ if __name__ == "__main__":
     # melody_extraction(args.InFile, args.OutFile_P)
     # output_feature_extraction(args.InFile, args.OutFile_FEAT, args.OutFile_Z, args.OutFile_CF)
 
-    InFile = "Wont_Cry/vocals.wav"
-    OutFile_FEAT = "FEAT.txt"
-    OutFile_Z = "Z.txt"
-    OutFile_CF = "CF.txt"
-    OutFile_P = "P.txt"
+    InFile = "data/TONAS/Deblas/02-D_ChanoLobato.wav"
+    OutFile_FEAT = "FEAT.npy"
+    OutFile_Z = "Z.npy"
+    OutFile_CF = "CF.npy"
+    OutFile_P = "P.npy"
 
     melody_extraction(InFile, OutFile_P)
     output_feature_extraction(InFile, OutFile_FEAT, OutFile_Z, OutFile_CF)
+
+    FEAT = np.load(OutFile_FEAT, allow_pickle=True)
+    P = np.load(OutFile_P, allow_pickle=True)
+    Z = np.load(OutFile_Z, allow_pickle=True)
+    CF = np.load(OutFile_CF, allow_pickle=True)
+
+    print("finish!")
