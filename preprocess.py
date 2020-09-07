@@ -440,7 +440,7 @@ if __name__ == "__main__":
     # melody_extraction(args.InFile, args.OutFile_P)
     # output_feature_extraction(args.InFile, args.OutFile_FEAT, args.OutFile_Z, args.OutFile_CF)
 
-    InFile = "data/train/TONAS/Deblas/01-D_AMairena.wav"
+    InFile = "data/train/TONAS/Deblas\\48-M1_JuanTalega.wav"
     OutFile_FEAT = "FEAT.npy"
     OutFile_Z = "Z.npy"
     OutFile_CF = "CF.npy"
