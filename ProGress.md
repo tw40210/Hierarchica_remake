@@ -5,4 +5,5 @@
                 SIN = np.concatenate((SIN1, SIN2, SIN3), axis=0) #(522, frames)
                 ZN = np.concatenate((ZN1, ZN2, ZN3), axis=0) #(522, frames)
                 SN_SIN_ZN = np.concatenate((SN, SIN, ZN), axis=0) #(1566, frames)
-5. unfinished dataset(length issue) to check , some of label files are still dismatch its end time.
+5. unfinished dataset(length issue) to check , some of label files are still dismatch its end time. OK
+6. Model establish

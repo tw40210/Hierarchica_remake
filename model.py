@@ -199,20 +199,23 @@ class ResNet(nn.Module):
 
 
 if __name__ == '__main__':
-    # x = torch.rand(1,3,522,1290)
-    # model = ResNet(BasicBlock, [2, 2, 2, 2])
-    # num_fout = model.conv1.out_channels
-    # model.conv1 = nn.Conv2d(3, num_fout, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3),
-    #                            bias=False)
-    # model.fc = nn.Linear(model.fc.in_features*41, 6)
-    #
-    # model.avgpool = nn.AvgPool2d(kernel_size=(17, 1), stride=1, padding=0)
-    #
-    # out = model(x)
-    # print(out.shape)
+    x = torch.rand(1,3,522,200)
+    model = ResNet(BasicBlock, [2, 2, 2, 2])
+    num_fout = model.conv1.out_channels
+    model.conv1 = nn.Conv2d(3, num_fout, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3),
+                               bias=False)
+    model.fc = nn.Linear(model.fc.in_features*7, 6)
 
-    dir='data/test/Process_data/FEAT/afemale1.wav_FEAT.npy'
+    model.avgpool = nn.AvgPool2d(kernel_size=(17, 1), stride=1, padding=0)
 
-    a_feat=np.load(dir)
+    out = model(x)
+    print(out.shape)
 
-    print(a_feat.shape)
+# if __name__ == '__main__':
+#     resnet18 = models.resnet18(pretrained=False)
+#     num_ftrs = resnet18.fc.in_features
+#     resnet18.fc = nn.Linear(num_ftrs, OUTPUT_SIZE)
+#     num_fout = resnet18.conv1.out_channels
+#     resnet18.conv1 = nn.Conv2d(int(args.feat_num1 // 3), num_fout, kernel_size=(7, 7), stride=(2, 2),
+#                                padding=(3, 3), bias=False)
+#     resnet18.avgpool = nn.AvgPool2d(kernel_size=(17, 1), stride=1, padding=0)
