@@ -51,34 +51,34 @@ def note2timestep(notes: List):
         end_tail = (note[0]+note[1])// 0.02 * 0.02 + 0.02
         status = [0, 1, 0, 1, 0, 1]
         ccc = ((note[0] + note[1] - tail) / 0.02)
-        for _ in range(int((note[0] + note[1] - tail) // 0.02)):
+        for _ in range(int((note[0] + note[1] - tail+1e-4) // 0.02)):
             timestep.append(status)
             pitch.append(note[2])
 
         status = [0, 1, 0, 1, 1, 0]
         timestep.append(status)
         pitch.append(note[2])
-        print(len(timestep), len(pitch))
+        # print(len(timestep), len(pitch))
 
     return timestep, pitch
 
 
 if __name__ == '__main__':
-    # for file in os.listdir('data/train/TONAS/Deblas/'):
-    #     if '.notes.Corrected' in file:
-    #         dir = f'data/train/TONAS/Deblas/{file}'
-    #         notes = read_notefile(dir)
-    #         aa,pp = note2timestep(notes)
-    #
-    #         print(((notes[-1][0]+notes[-1][1])//0.02+1)*0.02, len(aa)*0.02,file)
-    #         assert ((notes[-1][0]+notes[-1][1])//0.02+1)*0.02==len(aa)*0.02
-    #
-    #         aa = np.array(aa)
-    #         pp = np.array(pp)
+    for file in os.listdir('data/train/TONAS/Deblas/'):
+        if '.notes.Corrected' in file:
+            dir = f'data/train/TONAS/Deblas/{file}'
+            notes = read_notefile(dir)
+            aa,pp = note2timestep(notes)
+
+            print(((notes[-1][0]+notes[-1][1]+1e-4)//0.02+1)*0.02, len(aa)*0.02,file)
+            assert ((notes[-1][0]+notes[-1][1]+1e-4)//0.02+1)*0.02==len(aa)*0.02
+
+            aa = np.array(aa)
+            pp = np.array(pp)
 
 
-    dir = f'data/train/TONAS/Deblas/52-M1_ManueldeAngustias.notes.Corrected'
-    notes = read_notefile(dir)
-    aa,pp = note2timestep(notes)
-    aa = np.array(aa)
-    pp = np.array(pp)
+    # dir = f'data/train/TONAS/Deblas/52-M1_ManueldeAngustias.notes.Corrected'
+    # notes = read_notefile(dir)
+    # aa,pp = note2timestep(notes)
+    # aa = np.array(aa)
+    # pp = np.array(pp)

@@ -30,6 +30,9 @@ class train_set(Dataset):
         label_note = np.array(label_note)
         label_pitch = np.array(label_pitch)
 
+        # cut muted tail from feature
+        features_full = features_full[:, :label_note.shape[0]]
+
 
         #== random sampling
 
@@ -39,7 +42,7 @@ class train_set(Dataset):
             label_note = label_note[start:start+hparam.randomsample_size]
 
         else:
-            print(features_full.shape[1], label_note.shape[0], self.labels[index])
+            # print(features_full.shape[1], label_note.shape[0], self.labels[index])
             zero_pad = np.zeros((features_full.shape[0], hparam.randomsample_size - features_full.shape[1]))
             features_full = np.concatenate((features_full, zero_pad), axis=1)
             zero_pad = np.zeros((hparam.randomsample_size - label_note.shape[0], label_note.shape[1]))
@@ -65,4 +68,4 @@ if __name__ == '__main__':
     dataloader = DataLoader(train_set(path, f_path), batch_size = hparam.batch_size, shuffle=True, num_workers=hparam.num_workers)
 
     for features_full, label_note in dataloader:
-        print(features_full, label_note)
+        print(features_full.shape, "|||", label_note.shape)
