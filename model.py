@@ -188,6 +188,35 @@ class ResNet(nn.Module):
 
         return x
 
+def BCE_loss(est_x, ref_x):   #(batch, frame, status)
+    loss = nn.BCELoss()
+
+    ref_iftransition = torch.clamp(ref_x[:,:,2:3]+ref_x[:,:,4:5], 0, 1) # if on or off is 1
+
+    ref_tri = torch.cat((ref_x[:,:,:2], ref_iftransition), dim=2)
+    ref_act = ref_x[:,:,1]
+    ref_on = ref_x[:,:,2]
+    ref_off = ref_x[:, :, 4]
+
+    est_iftransition = torch.clamp(est_x[:,:,2:3]+est_x[:,:,4:5], 0, 1) # if on or off is 1
+
+    est_tri = torch.cat((est_x[:,:,:2], est_iftransition), dim=2)
+    est_act = est_x[:,:,1]
+    est_on = est_x[:,:,2]
+    est_off = est_x[:, :, 4]
+
+    loss_tri = loss(est_tri, ref_tri)
+    loss_act = loss(est_act, ref_act)
+    loss_on = loss(est_on, ref_on)
+    loss_off = loss(est_off, ref_off)
+
+    total_loss = loss_tri+loss_act+loss_on+loss_off
+
+    return total_loss
+
+
+
+
 
 # def _resnet(arch, block, layers, pretrained, progress, **kwargs):
 #     model = ResNet(block, layers, **kwargs)
@@ -199,17 +228,25 @@ class ResNet(nn.Module):
 
 
 if __name__ == '__main__':
-    x = torch.rand(1,3,522,200)
-    model = ResNet(BasicBlock, [2, 2, 2, 2])
-    num_fout = model.conv1.out_channels
-    model.conv1 = nn.Conv2d(3, num_fout, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3),
-                               bias=False)
-    model.fc = nn.Linear(model.fc.in_features*7, 6)
+    #loss
+    est_x  =torch.rand((2,2,6))
+    ref_x  =torch.rand((2,2,6))
 
-    model.avgpool = nn.AvgPool2d(kernel_size=(17, 1), stride=1, padding=0)
+    total = BCE_loss(est_x, ref_x)
+    print(total)
 
-    out = model(x)
-    print(out.shape)
+
+    # x = torch.rand(1,3,522,200)
+    # model = ResNet(BasicBlock, [2, 2, 2, 2])
+    # num_fout = model.conv1.out_channels
+    # model.conv1 = nn.Conv2d(3, num_fout, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3),
+    #                            bias=False)
+    # model.fc = nn.Linear(model.fc.in_features*7, 6)
+    #
+    # model.avgpool = nn.AvgPool2d(kernel_size=(17, 1), stride=1, padding=0)
+    #
+    # out = model(x)
+    # print(out.shape)
 
 # if __name__ == '__main__':
 #     resnet18 = models.resnet18(pretrained=False)
