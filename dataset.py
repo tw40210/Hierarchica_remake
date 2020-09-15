@@ -13,7 +13,7 @@ np.random.seed(SEED)
 torch.manual_seed(SEED)
 torch.cuda.manual_seed(SEED)
 
-class train_set(Dataset):
+class mydataset(Dataset):
     def __init__(self, path, f_path):
         self.wav_files = [os.path.join(path,file ) for file in os.listdir(path) if '.wav' in file]
         self.labels = [os.path.join(path,label ) for label in os.listdir(path) if'.notes.' in label]
@@ -39,7 +39,7 @@ class train_set(Dataset):
         if features_full.shape[1]>hparam.randomsample_size-1:
             start = random.randint(0, features_full.shape[1]-hparam.randomsample_size-1)
             features_full = features_full[:,start:start+hparam.randomsample_size]
-            label_note = label_note[start:start+hparam.randomsample_size]
+            label_note = label_note[start+int((hparam.randomsample_size-1)/2):start+int((hparam.randomsample_size-1)/2)+1]
 
         else:
             # print(features_full.shape[1], label_note.shape[0], self.labels[index])
@@ -49,9 +49,13 @@ class train_set(Dataset):
             label_note = np.concatenate((label_note, zero_pad), axis=0)
 
         features_full= torch.from_numpy(features_full).float()
+        # zero_pad = torch.zeros((features_full.shape[0], 9))
+        # features_full = torch.cat((zero_pad ,features_full), dim=0) #padding because we need 9 forward and backward
+        # features_full = torch.cat(( features_full,zero_pad), dim=0)
+        features_full= features_full.view(3,522,-1)
         label_note = torch.from_numpy(np.array(label_note)).int()
 
-        assert features_full.shape[1]==hparam.randomsample_size
+        assert features_full.shape[2]==hparam.randomsample_size
 
 
         return features_full, label_note
@@ -65,7 +69,7 @@ if __name__ == '__main__':
     path = 'data/train/TONAS/Deblas'
     f_path ='data/train/Process_data/FEAT'
 
-    dataloader = DataLoader(train_set(path, f_path), batch_size = hparam.batch_size, shuffle=True, num_workers=hparam.num_workers)
+    dataloader = DataLoader(mydataset(path, f_path), batch_size = hparam.batch_size, shuffle=True, num_workers=hparam.num_workers)
 
     for features_full, label_note in dataloader:
         print(features_full.shape, "|||", label_note.shape)

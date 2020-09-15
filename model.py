@@ -115,6 +115,7 @@ class ResNet(nn.Module):
                              "or a 3-element tuple, got {}".format(replace_stride_with_dilation))
         self.groups = groups
         self.base_width = width_per_group
+        self.sigmoid = nn.Sigmoid()
         self.conv1 = nn.Conv2d(3, self.inplanes, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3),
                                bias=False)
         self.bn1 = norm_layer(self.inplanes)
@@ -185,11 +186,16 @@ class ResNet(nn.Module):
         x = self.avgpool(x)
         x = torch.flatten(x, 1)
         x = self.fc(x)
+        x = self.sigmoid(x)
 
+        x = x.unsqueeze(1)
         return x
 
-def BCE_loss(est_x, ref_x):   #(batch, frame, status)
+def get_BCE_loss(est_x, ref_x):   #(batch, frame, status)
     loss = nn.BCELoss()
+    est_x = est_x.double()
+    ref_x = ref_x.double()
+
 
     ref_iftransition = torch.clamp(ref_x[:,:,2:3]+ref_x[:,:,4:5], 0, 1) # if on or off is 1
 
@@ -229,24 +235,24 @@ def BCE_loss(est_x, ref_x):   #(batch, frame, status)
 
 if __name__ == '__main__':
     #loss
-    est_x  =torch.rand((2,2,6))
-    ref_x  =torch.rand((2,2,6))
-
-    total = BCE_loss(est_x, ref_x)
-    print(total)
-
-
-    # x = torch.rand(1,3,522,200)
-    # model = ResNet(BasicBlock, [2, 2, 2, 2])
-    # num_fout = model.conv1.out_channels
-    # model.conv1 = nn.Conv2d(3, num_fout, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3),
-    #                            bias=False)
-    # model.fc = nn.Linear(model.fc.in_features*7, 6)
+    # est_x  =torch.rand((2,2,6))
+    # ref_x  =torch.rand((2,2,6))
     #
-    # model.avgpool = nn.AvgPool2d(kernel_size=(17, 1), stride=1, padding=0)
-    #
-    # out = model(x)
-    # print(out.shape)
+    # total = get_BCE_loss(est_x, ref_x)
+    # print(total)
+
+
+    x = torch.rand(1,3,522,19)
+    model = ResNet(BasicBlock, [2, 2, 2, 2])
+    num_fout = model.conv1.out_channels
+    model.conv1 = nn.Conv2d(3, num_fout, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3),
+                               bias=False)
+    model.fc = nn.Linear(model.fc.in_features, 6)
+
+    model.avgpool = nn.AvgPool2d(kernel_size=(17, 1), stride=1, padding=0)
+
+    out = model(x)
+    print(out.shape)
 
 # if __name__ == '__main__':
 #     resnet18 = models.resnet18(pretrained=False)

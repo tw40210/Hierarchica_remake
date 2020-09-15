@@ -8,6 +8,24 @@ import hparam
 import matplotlib.pyplot as plt
 from typing import Dict, List
 import os
+import torch
+
+
+def get_accuracy(est_label, ref_label):
+    correct = 0
+    total = ref_label.shape[0]*ref_label.shape[1]
+
+    est_label = (est_label > hparam.label_threshold).int()
+    ref_label = ref_label.int()
+
+    for batch_idx in range(ref_label.shape[0]):
+        for frame_idx in range(ref_label.shape[1]):
+            if torch.equal(est_label[batch_idx][frame_idx], ref_label[batch_idx][frame_idx]):
+                correct+=1
+
+    return correct/total
+
+
 
 
 def read_notefile(path, limit_len=None):

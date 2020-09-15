@@ -1,4 +1,4 @@
-import preprocess
+# import preprocess
 import numpy as np
 import hparam
 import os
@@ -6,38 +6,58 @@ from tqdm import tqdm
 from keras.models import load_model
 import shutil
 
+
+# #============== transform to standard label form
+# raw_dir = "data/test/EvaluationFramework_ISMIR2014/DATASET"
 #
-raw_dir = "data/test/EvaluationFramework_ISMIR2014/DATASET"
-tar_dir = "data/test/Process_data"
+# for file in os.listdir(raw_dir):
+#     if 'GroundTruth.txt' in file:
+#         with open(os.path.join(raw_dir, file), 'r') as src_txt:
+#             with open(os.path.join(raw_dir,f'{file[:-15]}notes.Corrected'), 'w') as tar_txt:
+#                 tar_txt.write('0\n')
+#                 lines = src_txt.readlines()
+#                 for line in lines:
+#                     note = list(map(float, line.split(' ')))
+#                     tar_note=[]
+#                     tar_note.append(note[0])
+#                     tar_note.append(note[1] - note[0])
+#                     tar_note.append(note[2])
+#                     tar_note.append(0.01)
+#
+#                     tar_txt.write(f'{tar_note[0]}, {tar_note[1]}, {tar_note[2]}, {tar_note[3]}\n')
 
-InFile = "data/TONAS/Deblas/01-D_AMairena.wav"
-
-OutFile_FEAT = "FEAT.npy"
-OutFile_Z = "Z.npy"
-OutFile_CF = "CF.npy"
-OutFile_P = "P.npy"
-
-modelname = 'checkpoint/model3_patch25'
-model = load_model(modelname)
-
-for file in tqdm(os.listdir(raw_dir)) :
-    if '.wav' in file:
-        InFile = os.path.join(raw_dir, file)
-
-        os.makedirs(os.path.join(tar_dir, "FEAT"), exist_ok=True)
-        OutFile_FEAT = os.path.join(os.path.join(tar_dir, "FEAT"), f"{file}_FEAT.npy")
-        os.makedirs(os.path.join(tar_dir, "Z"), exist_ok=True)
-        OutFile_Z = os.path.join(os.path.join(tar_dir, "Z"), f"{file}_Z.npy")
-        os.makedirs(os.path.join(tar_dir, "CF"), exist_ok=True)
-        OutFile_CF = os.path.join(os.path.join(tar_dir, "CF"), f"{file}_CF.npy")
-        os.makedirs(os.path.join(tar_dir, "P"), exist_ok=True)
-        OutFile_P = os.path.join(os.path.join(tar_dir, "P"), f"{file}_P.npy")
-
-        preprocess.melody_extraction(InFile, OutFile_P,model)
-        preprocess.output_feature_extraction(InFile, OutFile_FEAT, OutFile_Z, OutFile_CF)
-
-
-print("finish!")
+#================ feature extraction
+# raw_dir = "data/test/EvaluationFramework_ISMIR2014/DATASET"
+# tar_dir = "data/test/Process_data"
+#
+# InFile = "data/TONAS/Deblas/01-D_AMairena.wav"
+#
+# OutFile_FEAT = "FEAT.npy"
+# OutFile_Z = "Z.npy"
+# OutFile_CF = "CF.npy"
+# OutFile_P = "P.npy"
+#
+# modelname = 'checkpoint/model3_patch25'
+# model = load_model(modelname)
+#
+# for file in tqdm(os.listdir(raw_dir)) :
+#     if '.wav' in file:
+#         InFile = os.path.join(raw_dir, file)
+#
+#         os.makedirs(os.path.join(tar_dir, "FEAT"), exist_ok=True)
+#         OutFile_FEAT = os.path.join(os.path.join(tar_dir, "FEAT"), f"{file}_FEAT.npy")
+#         os.makedirs(os.path.join(tar_dir, "Z"), exist_ok=True)
+#         OutFile_Z = os.path.join(os.path.join(tar_dir, "Z"), f"{file}_Z.npy")
+#         os.makedirs(os.path.join(tar_dir, "CF"), exist_ok=True)
+#         OutFile_CF = os.path.join(os.path.join(tar_dir, "CF"), f"{file}_CF.npy")
+#         os.makedirs(os.path.join(tar_dir, "P"), exist_ok=True)
+#         OutFile_P = os.path.join(os.path.join(tar_dir, "P"), f"{file}_P.npy")
+#
+#         preprocess.melody_extraction(InFile, OutFile_P,model)
+#         preprocess.output_feature_extraction(InFile, OutFile_FEAT, OutFile_Z, OutFile_CF)
+#
+#
+# print("finish!")
 
 
 #==================ISMIR 2014 audio complete
