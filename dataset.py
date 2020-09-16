@@ -14,11 +14,22 @@ torch.manual_seed(SEED)
 torch.cuda.manual_seed(SEED)
 
 class mydataset(Dataset):
-    def __init__(self, path, f_path):
+    def __init__(self, path, f_path, amount =None):
         self.wav_files = [os.path.join(path,file ) for file in os.listdir(path) if '.wav' in file]
         self.labels = [os.path.join(path,label ) for label in os.listdir(path) if'.notes.' in label]
         self.features = [os.path.join(f_path,features )  for features in os.listdir(f_path) if '_FEAT' in features]
 
+        if amount:
+            while(len(self.wav_files)<amount):
+                self.wav_files = self.wav_files + self.wav_files
+                self.labels = self.labels + self.labels
+                self.features = self.features + self.features
+
+            self.wav_files = self.wav_files[:amount]
+            self.labels = self.labels[:amount]
+            self.features = self.features[:amount]
+
+        print(len(self.features))
 
     def __getitem__(self, index):
         # dir = 'data/train/Process_data/FEAT\\43-M1_ElChocolate.wav_FEAT.npy'

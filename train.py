@@ -14,6 +14,15 @@ from dataset import mydataset
 from model import ResNet, BasicBlock, get_BCE_loss
 from torch import optim
 
+SEED=0
+random.seed(SEED)
+np.random.seed(SEED)
+torch.manual_seed(SEED)
+torch.cuda.manual_seed(SEED)
+
+device=torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+
 train_path = 'data/train/TONAS/Deblas'
 train_f_path = 'data/train/Process_data/FEAT'
 
@@ -25,7 +34,7 @@ test_f_path = 'data/test/Process_data/FEAT'
 
 def train():
 
-    train_dataloader = DataLoader(mydataset(train_path, train_f_path), batch_size=hparam.batch_size, shuffle=True,
+    train_dataloader = DataLoader(mydataset(train_path, train_f_path, amount=10000), batch_size=hparam.batch_size, shuffle=True,
                             num_workers=hparam.num_workers)
     test_dataloader = DataLoader(mydataset(test_path, test_f_path), batch_size=hparam.batch_size, shuffle=True,
                             num_workers=hparam.num_workers)
@@ -36,8 +45,8 @@ def train():
     model.conv1 = nn.Conv2d(3, num_fout, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3),
                                bias=False)
     model.fc = nn.Linear(model.fc.in_features, 6)
-
     model.avgpool = nn.AvgPool2d(kernel_size=(17, 1), stride=1, padding=0)
+    model= model.to(device)
 
     optimizer = optim.RMSprop(model.parameters(), lr=hparam.lr, weight_decay=0, momentum=0.9)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=10)
@@ -49,6 +58,10 @@ def train():
     for epoch in range(hparam.epoch):
         bar = tqdm(train_dataloader)
         for features_full, label_note in bar :
+
+            features_full = features_full.to(device)
+            label_note = label_note.to(device)
+
             optimizer.zero_grad()
 
             out_label = model(features_full)
@@ -64,6 +77,10 @@ def train():
                 batch_count = 0
 
                 for features_full, label_note in test_dataloader:
+
+                    features_full = features_full.to(device)
+                    label_note = label_note.to(device)
+
                     out_label = model(features_full)
                     test_loss = get_BCE_loss(out_label, label_note)
                     test_sumloss+=test_loss
