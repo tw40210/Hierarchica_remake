@@ -7,3 +7,6 @@
                 SN_SIN_ZN = np.concatenate((SN, SIN, ZN), axis=0) #(1566, frames)
 5. unfinished dataset(length issue) to check , some of label files are still dismatch its end time. OK
 6. Model establish >loss >train -> label transform onoff adjust
+
+
+LOSS should contain label transform info

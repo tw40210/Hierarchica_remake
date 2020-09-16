@@ -15,6 +15,19 @@ def get_accuracy(est_label, ref_label):
     correct = 0
     total = ref_label.shape[0]*ref_label.shape[1]
 
+    for batch_idx in range(ref_label.shape[0]):
+        for frame_idx in range(ref_label.shape[1]):
+            norm_sa = est_label[batch_idx][frame_idx][0]+est_label[batch_idx][frame_idx][1]
+            norm_on = est_label[batch_idx][frame_idx][2]+est_label[batch_idx][frame_idx][3] # make sure the sum of on and Xon =1
+            norm_off = est_label[batch_idx][frame_idx][4]+est_label[batch_idx][frame_idx][5]
+            est_label[batch_idx][frame_idx][0]/=norm_sa
+            est_label[batch_idx][frame_idx][1]/=norm_sa
+            est_label[batch_idx][frame_idx][2]/=norm_on
+            est_label[batch_idx][frame_idx][3]/=norm_on
+            est_label[batch_idx][frame_idx][4]/=norm_off
+            est_label[batch_idx][frame_idx][5]/=norm_off
+
+
     est_label = (est_label > hparam.label_threshold).int()
     ref_label = ref_label.int()
 
@@ -22,6 +35,8 @@ def get_accuracy(est_label, ref_label):
         for frame_idx in range(ref_label.shape[1]):
             if torch.equal(est_label[batch_idx][frame_idx], ref_label[batch_idx][frame_idx]):
                 correct+=1
+
+    print(est_label[0],"||",  ref_label[0])
 
     return correct/total
 
