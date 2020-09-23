@@ -9,6 +9,80 @@ import matplotlib.pyplot as plt
 from typing import Dict, List
 import os
 import torch
+from tqdm import tqdm
+from model import ResNet, BasicBlock, get_BCE_loss
+import torch.nn as nn
+from tensorboardX import SummaryWriter
+
+device=torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+
+def get_Resnet():
+    model = ResNet(BasicBlock, [2, 2, 2, 2])
+    num_fout = model.conv1.out_channels
+    model.conv1 = nn.Conv2d(3, num_fout, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3),
+                            bias=False)
+    model.fc = nn.Linear(model.fc.in_features, 6)
+    model.avgpool = nn.AvgPool2d(kernel_size=(17, 1), stride=1, padding=0)
+
+    return model
+
+
+def whole_song_test(path, f_path, model=None, writer=None):
+    if not model:
+        model = get_Resnet()
+    if not writer:
+        writer= SummaryWriter()
+
+    wav_files = [os.path.join(path, file) for file in os.listdir(path) if '.wav' in file]
+    labels = [os.path.join(path, label) for label in os.listdir(path) if '.notes.' in label]
+    features = [os.path.join(f_path, features) for features in os.listdir(f_path) if '_FEAT' in features]
+
+
+    for index in range(len(features)):
+        record=[]
+
+
+        features_full = np.load(features[index])
+
+        label_note = read_notefile(labels[index])
+        label_note, label_pitch = note2timestep(label_note)
+        label_note = np.array(label_note)
+        label_pitch = np.array(label_pitch)
+
+        # cut muted tail from feature
+        features_full = features_full[:, :label_note.shape[0]]
+        # pad 9 zero steps in both head and tail
+        zero_pad = np.zeros((features_full.shape[0], 9))
+        features_full = np.concatenate((zero_pad, features_full), axis=1)
+        features_full = np.concatenate((features_full, zero_pad), axis=1)
+
+        for test_step in tqdm(range(features_full.shape[1]-18)) :
+            curr_clip = features_full[:, test_step:test_step+19]
+            curr_clip = torch.from_numpy(curr_clip)
+            curr_clip = curr_clip.view(3,522,-1).float()
+            curr_clip = curr_clip.unsqueeze(0)
+            curr_clip = curr_clip.to(device)
+            model = model.to(device)
+            out_label = model(curr_clip)
+            out_label = out_label.squeeze(0).squeeze(0).cpu().detach().numpy()
+
+            record.append(out_label)
+
+        record = np.array(record)
+
+        for la_idx in range(record.shape[1]):
+            plt.title(f"{la_idx}")
+            plt.ylim(0,1)
+            plt.plot(record[:,la_idx])
+            plt.show()
+            writer.
+
+
+
+
+
+
 
 
 def get_accuracy(est_label, ref_label):
@@ -97,17 +171,22 @@ def note2timestep(notes: List):
 
 
 if __name__ == '__main__':
-    for file in os.listdir('data/train/TONAS/Deblas/'):
-        if '.notes.Corrected' in file:
-            dir = f'data/train/TONAS/Deblas/{file}'
-            notes = read_notefile(dir)
-            aa,pp = note2timestep(notes)
+    path = "data/test_sample/wav_label"
+    f_path = "data/test_sample/FEAT"
 
-            print(((notes[-1][0]+notes[-1][1]+1e-4)//0.02+1)*0.02, len(aa)*0.02,file)
-            assert ((notes[-1][0]+notes[-1][1]+1e-4)//0.02+1)*0.02==len(aa)*0.02
+    whole_song_test(path, f_path)
 
-            aa = np.array(aa)
-            pp = np.array(pp)
+    # for file in os.listdir('data/train/TONAS/Deblas/'):
+    #     if '.notes.Corrected' in file:
+    #         dir = f'data/train/TONAS/Deblas/{file}'
+    #         notes = read_notefile(dir)
+    #         aa,pp = note2timestep(notes)
+    #
+    #         print(((notes[-1][0]+notes[-1][1]+1e-4)//0.02+1)*0.02, len(aa)*0.02,file)
+    #         assert ((notes[-1][0]+notes[-1][1]+1e-4)//0.02+1)*0.02==len(aa)*0.02
+    #
+    #         aa = np.array(aa)
+    #         pp = np.array(pp)
 
 
     # dir = f'data/train/TONAS/Deblas/52-M1_ManueldeAngustias.notes.Corrected'

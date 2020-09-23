@@ -13,6 +13,7 @@ from tqdm import tqdm
 from dataset import mydataset
 from model import ResNet, BasicBlock, get_BCE_loss
 from torch import optim
+from tensorboardX import SummaryWriter
 
 SEED=0
 random.seed(SEED)
@@ -51,6 +52,7 @@ def train():
     optimizer = optim.RMSprop(model.parameters(), lr=hparam.lr, weight_decay=0, momentum=0.9)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=10)
 
+    writer = SummaryWriter()
 
     step_count =0
 
@@ -82,10 +84,13 @@ def train():
                     label_note = label_note.to(device)
 
                     out_label = model(features_full)
+
+
                     test_loss = get_BCE_loss(out_label, label_note)
                     test_sumloss+=test_loss
                     test_acc = get_accuracy(out_label, label_note)
                     acc_sumloss+=test_acc
+
 
                     batch_count+=1
 
