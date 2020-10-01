@@ -13,8 +13,28 @@ from tqdm import tqdm
 from model import ResNet, BasicBlock, get_BCE_loss
 import torch.nn as nn
 from tensorboardX import SummaryWriter
+import shutil
 
 device=torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+class Logger(object):
+    def __init__(self, runs_dir):
+        self.runs_dir = runs_dir
+
+
+    def get_runsdir(self):
+        ori_dir = os.listdir(self.runs_dir)
+        return ori_dir
+    def get_new_runsdir(self, ori_runlist):
+        new_dirs = os.listdir(self.runs_dir)
+        for new_dir in new_dirs:
+            if new_dir not in ori_runlist:
+                return os.path.join(self.runs_dir, new_dir)
+        print("dir is  not found.")
+    def save_modelbackup(self, model, tar_dir):
+        torch.save(model.state_dict(), os.path.join(tar_dir, "model.pth"))
+    def save_codebackup(self, code_dir, tar_dir):
+        shutil.copy(code_dir, os.path.join(tar_dir, "codebackup.py"))
 
 
 def get_Resnet():
@@ -28,17 +48,23 @@ def get_Resnet():
     return model
 
 
-def whole_song_test(path, f_path, model=None, writer=None):
+def whole_song_test(path, f_path, model=None, writer_in=None, timestep=None):
     if not model:
         model = get_Resnet()
-    if not writer:
+    if not writer_in:
         writer= SummaryWriter()
+    else:
+        writer = writer_in
+
+    if not timestep:
+        timestep= 0
 
     wav_files = [os.path.join(path, file) for file in os.listdir(path) if '.wav' in file]
     labels = [os.path.join(path, label) for label in os.listdir(path) if '.notes.' in label]
     features = [os.path.join(f_path, features) for features in os.listdir(f_path) if '_FEAT' in features]
 
-
+    model.eval()
+    count = 0
     for index in range(len(features)):
         record=[]
 
@@ -68,20 +94,41 @@ def whole_song_test(path, f_path, model=None, writer=None):
             out_label = out_label.squeeze(0).squeeze(0).cpu().detach().numpy()
 
             record.append(out_label)
+            count+=1
+            writer.add_scalar(f"scalar\\{index}", count, count)
 
         record = np.array(record)
 
+        plt.figure(figsize=(7,12))
+        plt.subplots_adjust(wspace=0, hspace=1)
+
         for la_idx in range(record.shape[1]):
+            plt.subplot(record.shape[1], 1, la_idx+1)
             plt.title(f"{la_idx}")
-            plt.ylim(0,1)
+            plt.ylim(0, 1)
             plt.plot(record[:,la_idx])
-            plt.show()
-            writer.
 
+        fig = plt.gcf()
+        writer.add_figure(f"figurs\\{index}", fig, timestep)
 
+        #====GT
+        plt.figure(figsize=(7,12))
+        plt.subplots_adjust(wspace=0, hspace=1)
 
+        for la_idx in range(label_note.shape[1]//2):
+            la_idx*=2
+            plt.subplot(label_note.shape[1]//2, 1, la_idx//2+1)
+            plt.title(f"{la_idx}_gt")
+            plt.ylim(-0.2, 1.2)
+            a = label_note[:,la_idx]+label_note[:,la_idx+1]
+            plt.plot(label_note[:,la_idx])
 
+        fig = plt.gcf()
+        writer.add_figure(f"figurs\\{index}_gt", fig, timestep)
 
+        # plt.show()
+    if not writer_in:
+        writer.close()
 
 
 

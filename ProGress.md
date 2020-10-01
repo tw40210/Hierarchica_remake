@@ -10,3 +10,6 @@
 
 
 LOSS should contain label transform info
+
+7. put testdata to tensorboard OK
+8. logger coding save model and code to runs
