@@ -121,7 +121,7 @@ def testset_evaluation(path, f_path,model=None, writer_in=None, timestep=None):
         count += 1
         print(f"on_F1: {on_F}, off_F1: {off_F}")
 
-    writer.add_scalars(f"scalar\\{timestep}", {'on_F1':sum_on_F1/count, 'off_F1':sum_off_F1/count})
+    writer.add_scalars(f"scalar\\onoff_F1", {'on_F1':sum_on_F1/count, 'off_F1':sum_off_F1/count}, timestep)
 
 
 
@@ -175,7 +175,7 @@ def whole_song_sampletest(path, f_path, model=None, writer_in=None, timestep=Non
 
             record.append(out_label)
             count+=1
-            writer.add_scalar(f"scalar\\{index}", count, count)
+
 
         record = np.array(record)
 

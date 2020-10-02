@@ -120,7 +120,7 @@ def train():
                     test_path = hparam.test_path
                     test_f_path = hparam.test_f_path
 
-                    testset_evaluation(test_path, test_f_path)
+                    testset_evaluation(test_path, test_f_path, model=model, writer_in=writer, timestep=step_count)
 
 
 
