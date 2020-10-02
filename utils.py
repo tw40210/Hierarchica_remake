@@ -14,6 +14,7 @@ from model import ResNet, BasicBlock, get_BCE_loss
 import torch.nn as nn
 from tensorboardX import SummaryWriter
 import shutil
+import mir_eval
 
 device=torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -48,7 +49,85 @@ def get_Resnet():
     return model
 
 
-def whole_song_test(path, f_path, model=None, writer_in=None, timestep=None):
+
+
+
+def testset_evaluation(path, f_path,model=None, writer_in=None, timestep=None):
+    if not model:
+        model = get_Resnet()
+    if not writer_in:
+        writer= SummaryWriter()
+    else:
+        writer = writer_in
+
+    if not timestep:
+        timestep= 0
+
+    wav_files = [os.path.join(path, file) for file in os.listdir(path) if '.wav' in file]
+    labels = [os.path.join(path, label) for label in os.listdir(path) if '.notes.' in label]
+    features = [os.path.join(f_path, features) for features in os.listdir(f_path) if '_FEAT' in features]
+
+    sum_on_F1=0
+    sum_off_F1 = 0
+
+    model.eval()
+    count = 0
+    print("testing on testset for on/off_F1\n")
+    for index in tqdm(range(len(features))):
+        if count>4: # shorten test time by sampling
+            break
+        record = []
+        features_full = np.load(features[index])
+
+        label_note = read_notefile(labels[index])
+        gt_label_sec_on, gt_label_sec_off = note2onoff_sec(label_note)
+
+        label_note, label_pitch = note2timestep(label_note)
+        label_note = np.array(label_note)
+        label_pitch = np.array(label_pitch)
+
+        # cut muted tail from feature
+        features_full = features_full[:, :label_note.shape[0]]
+        # pad 9 zero steps in both head and tail
+        zero_pad = np.zeros((features_full.shape[0], 9))
+        features_full = np.concatenate((zero_pad, features_full), axis=1)
+        features_full = np.concatenate((features_full, zero_pad), axis=1)
+
+
+
+
+
+        for test_step in range(features_full.shape[1] - 18):
+            curr_clip = features_full[:, test_step:test_step+19]
+            curr_clip = torch.from_numpy(curr_clip)
+            curr_clip = curr_clip.view(3,522,-1).float()
+            curr_clip = curr_clip.unsqueeze(0)
+            curr_clip = curr_clip.to(device)
+            model = model.to(device)
+            out_label = model(curr_clip)
+            out_label = out_label.squeeze(0).squeeze(0).cpu().detach().numpy()
+
+            record.append(out_label)
+
+        record = np.array(record)
+        est_labels = output2label(record, is_batch=False,is_nparray=True)
+        est_label_sec_on, est_label_sec_off = timestep2second(est_labels)
+
+        on_F, on_P, on_R = mir_eval.onset.f_measure(gt_label_sec_on, est_label_sec_on)
+        off_F, off_P, off_R = mir_eval.onset.f_measure(gt_label_sec_off, est_label_sec_off)
+
+        sum_on_F1+=on_F
+        sum_off_F1+=off_F
+        count += 1
+        print(f"on_F1: {on_F}, off_F1: {off_F}")
+
+    writer.add_scalars(f"scalar\\{timestep}", {'on_F1':sum_on_F1/count, 'off_F1':sum_off_F1/count})
+
+
+
+
+
+def whole_song_sampletest(path, f_path, model=None, writer_in=None, timestep=None):
     if not model:
         model = get_Resnet()
     if not writer_in:
@@ -65,7 +144,8 @@ def whole_song_test(path, f_path, model=None, writer_in=None, timestep=None):
 
     model.eval()
     count = 0
-    for index in range(len(features)):
+    print("testing on testsample\n")
+    for index in tqdm(range(len(features))):
         record=[]
 
 
@@ -83,7 +163,7 @@ def whole_song_test(path, f_path, model=None, writer_in=None, timestep=None):
         features_full = np.concatenate((zero_pad, features_full), axis=1)
         features_full = np.concatenate((features_full, zero_pad), axis=1)
 
-        for test_step in tqdm(range(features_full.shape[1]-18)) :
+        for test_step in range(features_full.shape[1]-18) :
             curr_clip = features_full[:, test_step:test_step+19]
             curr_clip = torch.from_numpy(curr_clip)
             curr_clip = curr_clip.view(3,522,-1).float()
@@ -132,32 +212,34 @@ def whole_song_test(path, f_path, model=None, writer_in=None, timestep=None):
 
 
 
+
 def get_accuracy(est_label, ref_label):
     correct = 0
     total = ref_label.shape[0]*ref_label.shape[1]
 
-    for batch_idx in range(ref_label.shape[0]):
-        for frame_idx in range(ref_label.shape[1]):
-            norm_sa = est_label[batch_idx][frame_idx][0]+est_label[batch_idx][frame_idx][1]
-            norm_on = est_label[batch_idx][frame_idx][2]+est_label[batch_idx][frame_idx][3] # make sure the sum of on and Xon =1
-            norm_off = est_label[batch_idx][frame_idx][4]+est_label[batch_idx][frame_idx][5]
-            est_label[batch_idx][frame_idx][0]/=norm_sa
-            est_label[batch_idx][frame_idx][1]/=norm_sa
-            est_label[batch_idx][frame_idx][2]/=norm_on
-            est_label[batch_idx][frame_idx][3]/=norm_on
-            est_label[batch_idx][frame_idx][4]/=norm_off
-            est_label[batch_idx][frame_idx][5]/=norm_off
 
 
-    est_label = (est_label > hparam.label_threshold).int()
+    # for batch_idx in range(ref_label.shape[0]):
+    #     for frame_idx in range(ref_label.shape[1]):
+    #         norm_sa = est_label[batch_idx][frame_idx][0]+est_label[batch_idx][frame_idx][1]
+    #         norm_on = est_label[batch_idx][frame_idx][2]+est_label[batch_idx][frame_idx][3] # make sure the sum of on and Xon =1
+    #         norm_off = est_label[batch_idx][frame_idx][4]+est_label[batch_idx][frame_idx][5]
+    #         est_label[batch_idx][frame_idx][0]/=norm_sa
+    #         est_label[batch_idx][frame_idx][1]/=norm_sa
+    #         est_label[batch_idx][frame_idx][2]/=norm_on
+    #         est_label[batch_idx][frame_idx][3]/=norm_on
+    #         est_label[batch_idx][frame_idx][4]/=norm_off
+    #         est_label[batch_idx][frame_idx][5]/=norm_off
+    #
+    #
+    # est_label = (est_label > hparam.label_threshold).int()
+    est_label = output2label(est_label)
     ref_label = ref_label.int()
 
     for batch_idx in range(ref_label.shape[0]):
         for frame_idx in range(ref_label.shape[1]):
             if torch.equal(est_label[batch_idx][frame_idx], ref_label[batch_idx][frame_idx]):
                 correct+=1
-
-    print(est_label[0],"||",  ref_label[0])
 
     return correct/total
 
@@ -174,6 +256,64 @@ def read_notefile(path, limit_len=None):
             notes.append(note)
 
     return notes
+
+def output2label(est_output, is_batch=True, is_nparray=False):
+
+    if is_batch:
+        for batch_idx in range(est_output.shape[0]):
+            for frame_idx in range(est_output.shape[1]):
+                norm_sa = est_output[batch_idx][frame_idx][0]+est_output[batch_idx][frame_idx][1]
+                norm_on = est_output[batch_idx][frame_idx][2]+est_output[batch_idx][frame_idx][3] # make sure the sum of on and Xon =1
+                norm_off = est_output[batch_idx][frame_idx][4]+est_output[batch_idx][frame_idx][5]
+                est_output[batch_idx][frame_idx][0]/=norm_sa
+                est_output[batch_idx][frame_idx][1]/=norm_sa
+                est_output[batch_idx][frame_idx][2]/=norm_on
+                est_output[batch_idx][frame_idx][3]/=norm_on
+                est_output[batch_idx][frame_idx][4]/=norm_off
+                est_output[batch_idx][frame_idx][5]/=norm_off
+    else:
+        for frame_idx in range(est_output.shape[0]):
+            norm_sa = est_output[frame_idx][0] + est_output[frame_idx][1]
+            norm_on = est_output[frame_idx][2] + est_output[frame_idx][
+                3]  # make sure the sum of on and Xon =1
+            norm_off = est_output[frame_idx][4] + est_output[frame_idx][5]
+            est_output[frame_idx][0] /= norm_sa
+            est_output[frame_idx][1] /= norm_sa
+            est_output[frame_idx][2] /= norm_on
+            est_output[frame_idx][3] /= norm_on
+            est_output[frame_idx][4] /= norm_off
+            est_output[frame_idx][5] /= norm_off
+
+    if is_nparray:
+        est_label = np.where(est_output > hparam.label_threshold, 1, 0)
+    else:
+        est_label = (est_output > hparam.label_threshold).int()
+    return est_label
+
+def timestep2second(labels):
+    onset_list=[]
+    offset_list =[]
+
+    for timestep, label in enumerate(labels) :
+        if (label[2]==1):
+            onset_list.append(timestep*hparam.timestep+hparam.timestep*0.5)
+
+    for timestep, label in enumerate(labels) :
+        if (label[4]==1):
+            offset_list.append(timestep*hparam.timestep+hparam.timestep*0.5)
+
+    return np.array(onset_list), np.array(offset_list)
+
+def note2onoff_sec(notes: List):
+    onset_list=[]
+    offset_list =[]
+
+    for timestep, label in enumerate(notes) :
+        onset_list.append(label[0])
+        offset_list.append(label[0]+label[1])
+
+    return np.array(onset_list), np.array(offset_list)
+
 
 
 def note2timestep(notes: List):
@@ -218,10 +358,10 @@ def note2timestep(notes: List):
 
 
 if __name__ == '__main__':
-    path = "data/test_sample/wav_label"
-    f_path = "data/test_sample/FEAT"
+    path = "data/test/EvaluationFramework_ISMIR2014/DATASET"
+    f_path = "data/test/Process_data/FEAT"
 
-    whole_song_test(path, f_path)
+    testset_evaluation(path, f_path)
 
     # for file in os.listdir('data/train/TONAS/Deblas/'):
     #     if '.notes.Corrected' in file:

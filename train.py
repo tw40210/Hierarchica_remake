@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader
 import torch
 import os
 import numpy as np
-from utils import read_notefile, note2timestep, get_accuracy, whole_song_test, Logger, get_Resnet
+from utils import read_notefile, note2timestep, get_accuracy, whole_song_sampletest, Logger, get_Resnet, testset_evaluation
 import hparam
 import random
 from tqdm import tqdm
@@ -14,6 +14,7 @@ from dataset import mydataset
 from model import ResNet, BasicBlock, get_BCE_loss
 from torch import optim
 from tensorboardX import SummaryWriter
+import mir_eval
 
 SEED=0
 random.seed(SEED)
@@ -37,7 +38,7 @@ def train():
 
     train_dataloader = DataLoader(mydataset(train_path, train_f_path, amount=10000), batch_size=hparam.batch_size, shuffle=True,
                             num_workers=hparam.num_workers)
-    test_dataloader = DataLoader(mydataset(test_path, test_f_path), batch_size=hparam.batch_size, shuffle=True,
+    test_dataloader = DataLoader(mydataset(hparam.test_path, hparam.test_f_path), batch_size=hparam.batch_size, shuffle=True,
                             num_workers=hparam.num_workers)
 
 
@@ -82,6 +83,7 @@ def train():
                     acc_sumloss = 0
                     batch_count = 0
 
+
                     for features_full, label_note in test_dataloader:
 
                         features_full = features_full.to(device)
@@ -110,14 +112,17 @@ def train():
                 if step_count % hparam.step_to_save == 0:
                     testsample_path = hparam.testsample_path
                     testsample_f_path = hparam.testsample_f_path
-                    whole_song_test(testsample_path, testsample_f_path, model=model, writer_in=writer, timestep=step_count)
+                    whole_song_sampletest(testsample_path, testsample_f_path, model=model, writer_in=writer, timestep=step_count)
                     torch.save(model.state_dict(), f"checkpoint/{step_count}.pth")
                     logger.save_modelbackup(model, new_rundir)
                     print(f'saved in {step_count}\n')
 
+                    test_path = hparam.test_path
+                    test_f_path = hparam.test_f_path
+
+                    testset_evaluation(test_path, test_f_path)
+
 
 
 if __name__ == '__main__':
-    model = get_Resnet().to(device)
-    model.load_state_dict(torch.load("runs/Oct01_16-45-19_MSI/model.pth"))
-    print("successful")
+    train()
