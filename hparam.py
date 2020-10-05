@@ -2,10 +2,10 @@ sr = 16000
 timestep=0.02
 batch_size=32
 num_workers=1
-randomsample_size=19*10
+randomsample_size=100
 epoch=30
 lr = 0.001
-step_to_test = 3
+step_to_test = 2
 step_to_save = 6
 
 

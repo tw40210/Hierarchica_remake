@@ -89,7 +89,7 @@ def train():
                     for features_full, label_note in test_dataloader:
                         features_full = features_full.to(device)
                         label_note = label_note.to(device)
-                        for clip_id in range(features_full.shape[-1] - 18):
+                        for clip_id in range(features_full.shape[-1] - 18-hparam.randomsample_size+5):
                             features_full_clip = features_full[:, :, :, clip_id:clip_id + 19]
                             label_note_clip = label_note[:, clip_id:clip_id + 1, :]
 
