@@ -15,6 +15,7 @@ import torch.nn as nn
 from tensorboardX import SummaryWriter
 import shutil
 import mir_eval
+import pathlib
 
 device=torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -158,8 +159,12 @@ def whole_song_sampletest(path, f_path, model=None, writer_in=None, timestep=Non
 
 
         features_full = np.load(features[index])
-        label_path = f'{features[index][:-4]}.notes.Corrected'
+
+
+        label_path = str(pathlib.Path(labels[index]).parent/(pathlib.Path(features[index]).stem.split('.')[0]+".notes.Corrected"))
         label_note = read_notefile(label_path)
+
+        label_note = read_notefile(labels[index])
         label_note, label_pitch = note2timestep(label_note)
         label_note = np.array(label_note)
         label_pitch = np.array(label_pitch)
