@@ -158,8 +158,8 @@ def whole_song_sampletest(path, f_path, model=None, writer_in=None, timestep=Non
 
 
         features_full = np.load(features[index])
-
-        label_note = read_notefile(labels[index])
+        label_path = f'{features[index][:-4]}.notes.Corrected'
+        label_note = read_notefile(label_path)
         label_note, label_pitch = note2timestep(label_note)
         label_note = np.array(label_note)
         label_pitch = np.array(label_pitch)
