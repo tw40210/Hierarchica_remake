@@ -65,17 +65,19 @@ def train():
         for epoch in range(hparam.epoch):
             bar = tqdm(train_dataloader)
             for features_full, label_note in bar :
-
-                features_full = features_full.to(device)
+                features_full=features_full.to(device)
                 label_note = label_note.to(device)
+                for clip_id in tqdm(range(features_full.shape[-1]-18)):
+                    features_full_clip = features_full[:,:,:,clip_id:clip_id+19]
+                    label_note_clip = label_note[:,clip_id:clip_id+1,:]
 
-                optimizer.zero_grad()
+                    optimizer.zero_grad()
 
-                out_label = model(features_full)
-                loss = get_BCE_loss(out_label, label_note)
+                    out_label = model(features_full_clip)
+                    loss = get_BCE_loss(out_label, label_note_clip)
 
-                loss.backward()
-                optimizer.step()
+                    loss.backward()
+                    optimizer.step()
                 step_count+=1
 
                 if step_count%hparam.step_to_test ==0:
@@ -85,20 +87,21 @@ def train():
 
 
                     for features_full, label_note in test_dataloader:
-
                         features_full = features_full.to(device)
                         label_note = label_note.to(device)
+                        for clip_id in range(features_full.shape[-1] - 18):
+                            features_full_clip = features_full[:, :, :, clip_id:clip_id + 19]
+                            label_note_clip = label_note[:, clip_id:clip_id + 1, :]
 
-                        out_label = model(features_full)
-
-
-                        test_loss = get_BCE_loss(out_label, label_note)
-                        test_sumloss+=test_loss
-                        test_acc = get_accuracy(out_label, label_note)
-                        acc_sumloss+=test_acc
+                            out_label = model(features_full_clip)
 
 
-                        batch_count+=1
+                            test_loss = get_BCE_loss(out_label, label_note_clip)
+                            test_sumloss+=test_loss
+                            test_acc = get_accuracy(out_label, label_note_clip)
+
+                            acc_sumloss+=test_acc
+                            batch_count+=1
 
 
                     avg_loss = test_sumloss/batch_count

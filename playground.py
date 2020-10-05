@@ -9,17 +9,9 @@ import random
 import matplotlib.pyplot as plt
 import pathlib
 
-def backward_index(path):
-    ''''
-    input: posixpath
-    :return : posixpath
-    '''
-    return pathlib.Path(str(path)[:-len(path.stem)])
-
-p = pathlib.Path("/checkpoint")
-
-lib = p/'lib'/'adsd'
-
-print(lib.parent.stem)
 
 
+a = np.array([1,0,0,1,0,1])
+a = np.tile(a, [10,1])
+
+print(a.shape)

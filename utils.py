@@ -37,6 +37,14 @@ class Logger(object):
     def save_codebackup(self, code_dir, tar_dir):
         shutil.copy(code_dir, os.path.join(tar_dir, "codebackup.py"))
 
+def silence_label(num_label, num_class):
+    assert num_class==6
+    padding = np.repeat(np.array([1,0,0,1,0,1]), [num_label, 1])
+    return padding
+
+def expand_onoff_label(label_note):
+    pass
+
 
 def get_Resnet():
     model = ResNet(BasicBlock, [2, 2, 2, 2])

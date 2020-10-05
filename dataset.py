@@ -3,7 +3,7 @@ from torch.utils.data import DataLoader
 import torch
 import os
 import numpy as np
-from utils import read_notefile, note2timestep
+from utils import read_notefile, note2timestep, silence_label
 import hparam
 import random
 
@@ -47,26 +47,28 @@ class mydataset(Dataset):
 
         #== random sampling
 
+
+
         if features_full.shape[1]>hparam.randomsample_size-1:
             start = random.randint(0, features_full.shape[1]-hparam.randomsample_size-1)
             features_full = features_full[:,start:start+hparam.randomsample_size]
-            label_note = label_note[start+int((hparam.randomsample_size-1)/2):start+int((hparam.randomsample_size-1)/2)+1]
+            label_note = label_note[start:start+int(hparam.randomsample_size)]
 
         else:
             # print(features_full.shape[1], label_note.shape[0], self.labels[index])
             zero_pad = np.zeros((features_full.shape[0], hparam.randomsample_size - features_full.shape[1]))
             features_full = np.concatenate((features_full, zero_pad), axis=1)
-            zero_pad = np.zeros((hparam.randomsample_size - label_note.shape[0], label_note.shape[1]))
+            zero_pad = silence_label((hparam.randomsample_size - label_note.shape[0], label_note.shape[1]))
             label_note = np.concatenate((label_note, zero_pad), axis=0)
 
         features_full= torch.from_numpy(features_full).float()
-        # zero_pad = torch.zeros((features_full.shape[0], 9))
-        # features_full = torch.cat((zero_pad ,features_full), dim=0) #padding because we need 9 forward and backward
-        # features_full = torch.cat(( features_full,zero_pad), dim=0)
+        zero_pad = torch.zeros((features_full.shape[0], 9))
+        features_full = torch.cat((zero_pad ,features_full), dim=1) #padding because we need 9 forward and backward
+        features_full = torch.cat(( features_full,zero_pad), dim=1)
         features_full= features_full.view(3,522,-1)
         label_note = torch.from_numpy(np.array(label_note)).int()
 
-        assert features_full.shape[2]==hparam.randomsample_size
+        assert features_full.shape[2]==hparam.randomsample_size+18
 
 
         return features_full, label_note
