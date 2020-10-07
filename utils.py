@@ -160,14 +160,13 @@ def whole_song_sampletest(path, f_path, model=None, writer_in=None, timestep=Non
 
         features_full = np.load(features[index])
 
-
+        a = features[index]
         label_path = str(pathlib.Path(labels[index]).parent/(pathlib.Path(features[index]).stem.split('.')[0]+".notes.Corrected"))
         label_note = read_notefile(label_path)
-
-        label_note = read_notefile(labels[index])
         label_note, label_pitch = note2timestep(label_note)
         label_note = np.array(label_note)
         label_pitch = np.array(label_pitch)
+        print(a, "\n", label_path)
 
         # cut muted tail from feature
         features_full = features_full[:, :label_note.shape[0]]
@@ -195,6 +194,8 @@ def whole_song_sampletest(path, f_path, model=None, writer_in=None, timestep=Non
         plt.figure(figsize=(7,12))
         plt.subplots_adjust(wspace=0, hspace=1)
 
+        print(record.shape, "\n", label_note.shape)
+
         for la_idx in range(record.shape[1]):
             plt.subplot(record.shape[1], 1, la_idx+1)
             plt.title(f"{la_idx}")
@@ -205,19 +206,20 @@ def whole_song_sampletest(path, f_path, model=None, writer_in=None, timestep=Non
         writer.add_figure(f"figurs\\{index}", fig, timestep)
 
         #====GT
-        plt.figure(figsize=(7,12))
-        plt.subplots_adjust(wspace=0, hspace=1)
+        if timestep < 11:
+            plt.figure(figsize=(7,12))
+            plt.subplots_adjust(wspace=0, hspace=1)
 
-        for la_idx in range(label_note.shape[1]//2):
-            la_idx*=2
-            plt.subplot(label_note.shape[1]//2, 1, la_idx//2+1)
-            plt.title(f"{la_idx}_gt")
-            plt.ylim(-0.2, 1.2)
-            a = label_note[:,la_idx]+label_note[:,la_idx+1]
-            plt.plot(label_note[:,la_idx])
+            for la_idx in range(label_note.shape[1]//2):
+                la_idx*=2
+                plt.subplot(label_note.shape[1]//2, 1, la_idx//2+1)
+                plt.title(f"{la_idx}_gt")
+                plt.ylim(-0.2, 1.2)
+                a = label_note[:,la_idx]+label_note[:,la_idx+1]
+                plt.plot(label_note[:,la_idx])
 
-        fig = plt.gcf()
-        writer.add_figure(f"figurs\\{index}_gt", fig, timestep)
+            fig = plt.gcf()
+            writer.add_figure(f"figurs\\{index}_gt", fig, timestep)
 
         # plt.show()
     if not writer_in:
