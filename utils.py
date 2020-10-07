@@ -44,7 +44,33 @@ def silence_label(num_label, num_class):
     return padding
 
 def expand_onoff_label(label_note):
-    pass
+    record_on = []
+    record_off =[]
+    for idx, note in enumerate(label_note) :
+        if note[2]==1:
+            record_on.append(idx)
+        if note[4]==1:
+            record_off.append(idx)
+
+    for idx in record_on:
+        if(idx>1 and idx<len(label_note)-3):
+            label_note[idx][2]=1
+            label_note[idx-1][2]=1
+            label_note[idx-2][2]=1
+            label_note[idx+1][2]=1
+            label_note[idx+2][2]=1
+
+    for idx in record_off:
+        if (idx > 1 and idx < len(label_note) - 3):
+            label_note[idx][4]=1
+            label_note[idx-1][4]=1
+            label_note[idx-2][4]=1
+            label_note[idx+1][4]=1
+            label_note[idx+2][4]=1
+
+    return label_note
+
+
 
 
 def get_Resnet():

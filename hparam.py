@@ -2,11 +2,11 @@ sr = 16000
 timestep=0.02
 batch_size=32
 num_workers=1
-randomsample_size=100
+randomsample_size=20
 epoch=30
 lr = 0.001
 step_to_test = 2
-step_to_save = 6
+step_to_save = 10
 
 
 label_threshold = 0.5
