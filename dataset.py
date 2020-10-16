@@ -54,16 +54,28 @@ class mydataset(Dataset):
         if features_full.shape[1]>hparam.randomsample_size-1:
             onoff_exist=0
             rate = random.randint(0,100)   # only choose onoff set in specific possibility
-            if rate<30:
+            if rate<50:
 
                 while(True):
                     start = random.randint(0, features_full.shape[1]-hparam.randomsample_size-19)
-                    new_features_full = features_full[:,start:start+hparam.randomsample_size+18]
-                    new_label_note = label_note[start+9:start+int(hparam.randomsample_size)+9]
+                    backstep=0
+                    while(True):
+                        if label_note[start+backstep+9][2]==1 or label_note[start+backstep+9][4]==1:
+                            break
+                        else:
+                            backstep+=1
+
+                        if start+backstep+hparam.randomsample_size+18> features_full.shape[1]-2:
+                            start = random.randint(0, features_full.shape[1] - hparam.randomsample_size - 19)
+                            backstep = 0
+
+
+                    new_features_full = features_full[:,start+backstep:start+backstep+hparam.randomsample_size+18]
+                    new_label_note = label_note[start+backstep+9:start+backstep+int(hparam.randomsample_size)+9]
                     for note in new_label_note:
                         if(note[2]==1 or note[4]==1):
                             onoff_exist+=1
-                    if(onoff_exist>2):
+                    if(onoff_exist>1):
                         break
                     onoff_exist=0
             else:
@@ -86,6 +98,7 @@ class mydataset(Dataset):
         # features_full = torch.cat(( features_full,zero_pad), dim=1)
         new_features_full= new_features_full.view(3,522,-1)
         new_label_note = torch.from_numpy(np.array(new_label_note)).int()
+
 
         assert new_features_full.shape[2]==hparam.randomsample_size+18
 
