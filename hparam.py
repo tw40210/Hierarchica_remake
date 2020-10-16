@@ -5,8 +5,8 @@ num_workers=1
 randomsample_size=20
 epoch=30
 lr = 0.001
-step_to_test = 2
-step_to_save = 10
+step_to_test = 20
+step_to_save = 100
 
 
 label_threshold = 0.5

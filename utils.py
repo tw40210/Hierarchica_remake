@@ -232,7 +232,7 @@ def whole_song_sampletest(path, f_path, model=None, writer_in=None, timestep=Non
         writer.add_figure(f"figurs\\{index}", fig, timestep)
 
         #====GT
-        if timestep < 11:
+        if timestep < hparam.step_to_save+1:
             plt.figure(figsize=(7,12))
             plt.subplots_adjust(wspace=0, hspace=1)
 
