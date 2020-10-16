@@ -53,16 +53,23 @@ class mydataset(Dataset):
 
         if features_full.shape[1]>hparam.randomsample_size-1:
             onoff_exist=0
-            while(True):
-                start = random.randint(0, features_full.shape[1]-hparam.randomsample_size-19)
-                new_features_full = features_full[:,start:start+hparam.randomsample_size+18]
-                new_label_note = label_note[start+9:start+int(hparam.randomsample_size)+9]
-                for note in new_label_note:
-                    if(note[2]==1 or note[4]==1):
-                        onoff_exist+=1
-                if(onoff_exist>2):
-                    break
-                onoff_exist=0
+            rate = random.randint(0,100)   # only choose onoff set in specific possibility
+            if rate<30:
+
+                while(True):
+                    start = random.randint(0, features_full.shape[1]-hparam.randomsample_size-19)
+                    new_features_full = features_full[:,start:start+hparam.randomsample_size+18]
+                    new_label_note = label_note[start+9:start+int(hparam.randomsample_size)+9]
+                    for note in new_label_note:
+                        if(note[2]==1 or note[4]==1):
+                            onoff_exist+=1
+                    if(onoff_exist>2):
+                        break
+                    onoff_exist=0
+            else:
+                start = random.randint(0, features_full.shape[1] - hparam.randomsample_size - 19)
+                new_features_full = features_full[:, start:start + hparam.randomsample_size + 18]
+                new_label_note = label_note[start + 9:start + int(hparam.randomsample_size) + 9]
 
 
 
