@@ -43,6 +43,19 @@ def silence_label(num_label, num_class):
     padding = np.repeat(np.array([1,0,0,1,0,1]), [num_label, 1])
     return padding
 
+def _sub_expand_onoff_label(label_note, idx, cls):
+
+    for sub_idx in [1,-1]:
+
+        if label_note[idx+sub_idx][cls]!=1 and label_note[idx+sub_idx][0]!=1:
+            label_note[idx+sub_idx][cls] = 1
+            label_note[idx+sub_idx][cls+1] = 0
+
+
+
+    return label_note
+
+
 def expand_onoff_label(label_note):
     record_on = []
     record_off =[]
@@ -54,19 +67,23 @@ def expand_onoff_label(label_note):
 
     for idx in record_on:
         if(idx>1 and idx<len(label_note)-3):
-            label_note[idx][2]=1
-            label_note[idx-1][2]=1
-            label_note[idx-2][2]=1
-            label_note[idx+1][2]=1
-            label_note[idx+2][2]=1
+            label_note = _sub_expand_onoff_label(label_note, idx, 2)
+
+            # label_note[idx][2]=1
+            # label_note[idx-1][2]=1
+            # label_note[idx-2][2]=1
+            # label_note[idx+1][2]=1
+            # label_note[idx+2][2]=1
 
     for idx in record_off:
         if (idx > 1 and idx < len(label_note) - 3):
-            label_note[idx][4]=1
-            label_note[idx-1][4]=1
-            label_note[idx-2][4]=1
-            label_note[idx+1][4]=1
-            label_note[idx+2][4]=1
+            label_note = _sub_expand_onoff_label(label_note, idx, 4)
+
+            # label_note[idx][4]=1
+            # label_note[idx-1][4]=1
+            # label_note[idx-2][4]=1
+            # label_note[idx+1][4]=1
+            # label_note[idx+2][4]=1
 
     return label_note
 
