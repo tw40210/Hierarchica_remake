@@ -31,7 +31,10 @@ train_f_path = 'data/train/Process_data/FEAT'
 test_path = 'data/test/EvaluationFramework_ISMIR2014/DATASET'
 test_f_path = 'data/test/Process_data/FEAT'
 
-
+if torch.cuda.is_available():
+    print("cuda")
+else:
+    print("cpu")
 
 
 def train():
@@ -49,6 +52,8 @@ def train():
     # model.fc = nn.Linear(model.fc.in_features, 6)
     # model.avgpool = nn.AvgPool2d(kernel_size=(17, 1), stride=1, padding=0)
     model= get_Resnet().to(device)
+    model.load_state_dict(torch.load("model.pth"))
+    print("load OK")
 
     optimizer = optim.RMSprop(model.parameters(), lr=hparam.lr, weight_decay=0, momentum=0.9)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=10)

@@ -108,7 +108,7 @@ def testset_evaluation(path, f_path,model=None, writer_in=None, timestep=None):
     model.eval()
     count = 0
     print("testing on testset for on/off_F1\n")
-    for index in tqdm(range(len(features))):
+    for index in range(len(features)):
         if count>4: # shorten test time by sampling
             break
         record = []
@@ -179,8 +179,7 @@ def whole_song_sampletest(path, f_path, model=None, writer_in=None, timestep=Non
 
     model.eval()
     count = 0
-    print("testing on testsample\n")
-    for index in tqdm(range(len(features))):
+    for index in range(len(features)):
         record=[]
 
 
@@ -192,7 +191,6 @@ def whole_song_sampletest(path, f_path, model=None, writer_in=None, timestep=Non
         label_note, label_pitch = note2timestep(label_note)
         label_note = np.array(label_note)
         label_pitch = np.array(label_pitch)
-        print(a, "\n", label_path)
 
         # cut muted tail from feature
         features_full = features_full[:, :label_note.shape[0]]
@@ -220,13 +218,12 @@ def whole_song_sampletest(path, f_path, model=None, writer_in=None, timestep=Non
         plt.figure(figsize=(7,12))
         plt.subplots_adjust(wspace=0, hspace=1)
 
-        print(record.shape, "\n", label_note.shape)
 
         for la_idx in range(record.shape[1]):
             plt.subplot(record.shape[1], 1, la_idx+1)
             plt.title(f"{la_idx}")
             plt.ylim(0, 1)
-            plt.plot(record[:,la_idx])
+            plt.plot(record[:700,la_idx])
 
         fig = plt.gcf()
         writer.add_figure(f"figurs\\{index}", fig, timestep)
@@ -241,8 +238,7 @@ def whole_song_sampletest(path, f_path, model=None, writer_in=None, timestep=Non
                 plt.subplot(label_note.shape[1]//2, 1, la_idx//2+1)
                 plt.title(f"{la_idx}_gt")
                 plt.ylim(-0.2, 1.2)
-                a = label_note[:,la_idx]+label_note[:,la_idx+1]
-                plt.plot(label_note[:,la_idx])
+                plt.plot(label_note[:700,la_idx])
 
             fig = plt.gcf()
             writer.add_figure(f"figurs\\{index}_gt", fig, timestep)

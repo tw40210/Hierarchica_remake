@@ -4,9 +4,9 @@ batch_size=32
 num_workers=1
 randomsample_size=20
 epoch=30
-lr = 0.001
-step_to_test = 20
-step_to_save = 100
+lr = 0.0001
+step_to_test = 5
+step_to_save = 12
 
 
 label_threshold = 0.5
