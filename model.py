@@ -207,16 +207,16 @@ def get_BCE_loss(est_x, ref_x):   #(batch, frame, status)
     ref_iftransition = torch.clamp(ref_x[:,:,2:3]+ref_x[:,:,4:5], 0, 1) # if on or off is 1
 
     ref_tri = torch.cat((ref_x[:,:,:2], ref_iftransition), dim=2)
-    ref_act = ref_x[:,:,1]
-    ref_on = ref_x[:,:,2]
-    ref_off = ref_x[:, :, 4]
+    ref_act = ref_x[:,:,0:2]
+    ref_on = ref_x[:,:,2:4]
+    ref_off = ref_x[:, :, 4:6]
 
     est_iftransition = torch.clamp(est_x[:,:,2:3]+est_x[:,:,4:5], 0, 1) # if on or off is 1
 
     est_tri = torch.cat((est_x[:,:,:2], est_iftransition), dim=2)
-    est_act = est_x[:,:,1]
-    est_on = est_x[:,:,2]
-    est_off = est_x[:, :, 4]
+    est_act = est_x[:,:,0:2]
+    est_on = est_x[:,:,2:4]
+    est_off = est_x[:, :, 4:6]
 
     loss_tri = loss(est_tri, ref_tri)
     loss_act = loss(est_act, ref_act)
