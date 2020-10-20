@@ -87,6 +87,152 @@ def expand_onoff_label(label_note):
 
     return label_note
 
+def find_first_bellow_thres(aSeq):
+    activate = False
+    first_bellow_frame = 0
+    for i in range(len(aSeq)):
+        if aSeq[i] > 0.5:
+            activate = True
+        if activate and aSeq[i] < 0.5:
+            first_bellow_frame = i
+            break
+    return first_bellow_frame
+
+def Smooth_sdt6(predict_sdt, threshold=0.5):
+    # predict shape: (time step, 3)
+    Filter = np.ndarray(shape=(5,), dtype=float, buffer=np.array([0.25, 0.5, 1.0, 0.5, 0.25]))
+    # Filter = np.ndarray(shape=(5,), dtype=float, buffer=np.array([1.0, 1.0, 1.0, 1.0, 1.0]))
+    sSeq = []
+    dSeq = []
+    onSeq = []
+    offSeq = []
+
+    for num in range(predict_sdt.shape[0]):
+        if num > 1 and num < predict_sdt.shape[0] - 2:
+            sSeq.append(predict_sdt[num][0])
+            dSeq.append(predict_sdt[num][1])
+            onSeq.append(np.dot(predict_sdt[num - 2:num + 3, 2], Filter) / 2.5)
+            offSeq.append(np.dot(predict_sdt[num - 2:num + 3, 4], Filter) / 2.5)
+
+        else:
+            sSeq.append(predict_sdt[num][0])
+            dSeq.append(predict_sdt[num][1])
+            onSeq.append(predict_sdt[num][2])
+            offSeq.append(predict_sdt[num][4])
+
+    ##############################
+    # Peak strategy
+    ##############################
+
+    # find peak of transition
+    # peak time = frame*0.02+0.01
+    onpeaks = []
+    if onSeq[0] > onSeq[1] and onSeq[0] > onSeq[2] and onSeq[0] > threshold:
+        onpeaks.append(0)
+    if onSeq[1] > onSeq[0] and onSeq[1] > onSeq[2] and onSeq[1] > onSeq[3] and onSeq[1] > threshold:
+        onpeaks.append(1)
+    for num in range(len(onSeq)):
+        if num > 1 and num < len(onSeq) - 2:
+            if onSeq[num] > onSeq[num - 1] and onSeq[num] > onSeq[num - 2] and onSeq[num] > onSeq[num + 1] and onSeq[
+                num] > onSeq[num + 2] and onSeq[num] > threshold:
+                onpeaks.append(num)
+
+    if onSeq[-1] > onSeq[-2] and onSeq[-1] > onSeq[-3] and onSeq[-1] > threshold:
+        onpeaks.append(len(onSeq) - 1)
+    if onSeq[-2] > onSeq[-1] and onSeq[-2] > onSeq[-3] and onSeq[-2] > onSeq[-4] and onSeq[-2] > threshold:
+        onpeaks.append(len(onSeq) - 2)
+
+    offpeaks = []
+    if offSeq[0] > offSeq[1] and offSeq[0] > offSeq[2] and offSeq[0] > threshold:
+        offpeaks.append(0)
+    if offSeq[1] > offSeq[0] and offSeq[1] > offSeq[2] and offSeq[1] > offSeq[3] and offSeq[1] > threshold:
+        offpeaks.append(1)
+    for num in range(len(offSeq)):
+        if num > 1 and num < len(offSeq) - 2:
+            if offSeq[num] > offSeq[num - 1] and offSeq[num] > offSeq[num - 2] and offSeq[num] > offSeq[num + 1] and \
+                    offSeq[num] > offSeq[num + 2] and offSeq[num] > threshold:
+                offpeaks.append(num)
+
+    if offSeq[-1] > offSeq[-2] and offSeq[-1] > offSeq[-3] and offSeq[-1] > threshold:
+        offpeaks.append(len(offSeq) - 1)
+    if offSeq[-2] > offSeq[-1] and offSeq[-2] > offSeq[-3] and offSeq[-2] > offSeq[-4] and offSeq[-2] > threshold:
+        offpeaks.append(len(offSeq) - 2)
+
+    # determine onset/offset by silence, duration
+    # intervalSD = [0,1,0,1,...], 0:silence, 1:duration
+    if len(onpeaks) == 0 or len(offpeaks) == 0:
+        return None
+
+    Tpeaks = onpeaks + offpeaks
+    Tpeaks.sort()
+
+    intervalSD = [0]
+
+    for i in range(len(Tpeaks) - 1):
+        current_sd = 0 if sum(sSeq[Tpeaks[i]:Tpeaks[i + 1]]) > sum(dSeq[Tpeaks[i]:Tpeaks[i + 1]]) else 1
+        intervalSD.append(current_sd)
+    intervalSD.append(0)
+
+    MissingT = 0
+    AddingT = 0
+    est_intervals = []
+    t_idx = 0
+    while t_idx < len(Tpeaks):
+        if t_idx == len(Tpeaks) - 1:
+            break
+        if t_idx == 0 and Tpeaks[t_idx] not in onpeaks:
+            if intervalSD[0] == 1 and intervalSD[1] == 0:
+                onset_inserted = find_first_bellow_thres(sSeq[0:Tpeaks[0]])
+                if onset_inserted != Tpeaks[0] and Tpeaks > onset_inserted + 1:
+                    est_intervals.append([0.02 * onset_inserted + 0.01, 0.02 * Tpeaks[0] + 0.01])
+                    AddingT += 1
+                else:
+                    MissingT += 1
+            t_idx += 1
+
+        if Tpeaks[t_idx] in onpeaks and Tpeaks[t_idx + 1] in offpeaks:
+            if Tpeaks[t_idx] == Tpeaks[t_idx + 1]:
+                t_idx += 1
+                continue
+            if Tpeaks[t_idx + 1] > Tpeaks[t_idx] + 1:
+                est_intervals.append([0.02 * Tpeaks[t_idx] + 0.01, 0.02 * Tpeaks[t_idx + 1] + 0.01])
+            assert (Tpeaks[t_idx] < Tpeaks[t_idx + 1])
+            t_idx += 2
+        elif Tpeaks[t_idx] in onpeaks and Tpeaks[t_idx + 1] in onpeaks:
+            offset_inserted = find_first_bellow_thres(dSeq[Tpeaks[t_idx]:Tpeaks[t_idx + 1]]) + Tpeaks[t_idx]
+            if offset_inserted != Tpeaks[t_idx] and offset_inserted > Tpeaks[t_idx] + 1:
+                est_intervals.append([0.02 * Tpeaks[t_idx] + 0.01, 0.02 * offset_inserted + 0.01])
+                AddingT += 1
+                assert (Tpeaks[t_idx] < offset_inserted)
+            else:
+                MissingT += 1
+
+            t_idx += 1
+        elif Tpeaks[t_idx] in offpeaks:
+            if intervalSD[t_idx] == 1 and intervalSD[t_idx + 1] == 0:
+                onset_inserted = find_first_bellow_thres(sSeq[Tpeaks[t_idx - 1]:Tpeaks[t_idx]]) + Tpeaks[t_idx - 1]
+                if onset_inserted != Tpeaks[t_idx - 1] and Tpeaks[t_idx] > onset_inserted + 1:
+                    est_intervals.append([0.02 * onset_inserted + 0.01, 0.02 * Tpeaks[t_idx] + 0.01])
+                    AddingT += 1
+                    assert (onset_inserted < Tpeaks[t_idx])
+                else:
+                    MissingT += 1
+
+            t_idx += 1
+
+    # print("Missing ratio: ", MissingT/len(est_intervals))
+    print("Conflict ratio: ", MissingT / (len(Tpeaks) + AddingT))
+
+    # Modify 1
+    sSeq_np = np.ndarray(shape=(len(sSeq),), dtype=float, buffer=np.array(sSeq))
+    dSeq_np = np.ndarray(shape=(len(dSeq),), dtype=float, buffer=np.array(dSeq))
+    onSeq_np = np.ndarray(shape=(len(onSeq),), dtype=float, buffer=np.array(onSeq))
+    offSeq_np = np.ndarray(shape=(len(offSeq),), dtype=float, buffer=np.array(offSeq))
+
+    # return np.ndarray(shape=(len(onset_times),), dtype=float, buffer=np.array(onset_times)), np.ndarray(shape=(len(offset_times),), dtype=float, buffer=np.array(offset_times)), sSeq_np, dSeq_np, tSeq_np
+    return np.ndarray(shape=(len(est_intervals), 2), dtype=float,
+                      buffer=np.array(est_intervals)), sSeq_np, dSeq_np, onSeq_np, offSeq_np, MissingT / (
+                       len(Tpeaks) + AddingT)
 
 
 
@@ -162,6 +308,8 @@ def testset_evaluation(path, f_path,model=None, writer_in=None, timestep=None):
             record.append(out_label)
 
         record = np.array(record)
+
+
         est_labels = output2label(record, is_batch=False,is_nparray=True)
         est_label_sec_on, est_label_sec_off = timestep2second(est_labels)
 

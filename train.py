@@ -52,7 +52,7 @@ def train():
     # model.fc = nn.Linear(model.fc.in_features, 6)
     # model.avgpool = nn.AvgPool2d(kernel_size=(17, 1), stride=1, padding=0)
     model= get_Resnet().to(device)
-    model.load_state_dict(torch.load("model.pth"))
+    model.load_state_dict(torch.load("standard_checkpoint/4640.pth"))
     print("load OK")
 
     optimizer = optim.RMSprop(model.parameters(), lr=hparam.lr, weight_decay=0, momentum=0.9)
