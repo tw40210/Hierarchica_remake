@@ -16,6 +16,8 @@ from torch import optim
 from tensorboardX import SummaryWriter
 import mir_eval
 
+
+
 SEED=0
 random.seed(SEED)
 np.random.seed(SEED)
@@ -52,7 +54,7 @@ def train():
     # model.fc = nn.Linear(model.fc.in_features, 6)
     # model.avgpool = nn.AvgPool2d(kernel_size=(17, 1), stride=1, padding=0)
     model= get_Resnet().to(device)
-    model.load_state_dict(torch.load("standard_checkpoint/4640.pth"))
+    model.load_state_dict(torch.load("standard_checkpoint/4680_1020.pth"))
     print("load OK")
 
     optimizer = optim.RMSprop(model.parameters(), lr=hparam.lr, weight_decay=0, momentum=0.9)

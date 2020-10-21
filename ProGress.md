@@ -15,3 +15,4 @@ LOSS should contain label transform info
 8. logger coding save model and code to runs
 9. doing on utils.testset_evaluation
 10. wholesongtest length unmatch issue
+11. is going to check preprocess data is OK

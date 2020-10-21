@@ -54,7 +54,7 @@ class mydataset(Dataset):
         if features_full.shape[1]>hparam.randomsample_size-1:
             onoff_exist=0
             rate = random.randint(0,100)   # only choose onoff set in specific possibility
-            if rate<50:
+            if rate<10:
 
                 while(True):
                     start = random.randint(0, features_full.shape[1]-hparam.randomsample_size-19)
@@ -96,7 +96,7 @@ class mydataset(Dataset):
         # zero_pad = torch.zeros((features_full.shape[0], 9))
         # features_full = torch.cat((zero_pad ,features_full), dim=1) #padding because we need 9 forward and backward
         # features_full = torch.cat(( features_full,zero_pad), dim=1)
-        new_features_full= new_features_full.view(3,522,-1)
+        new_features_full= new_features_full.view(9,174,-1)
         new_label_note = torch.from_numpy(np.array(new_label_note)).int()
 
 
