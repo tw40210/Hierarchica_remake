@@ -17,7 +17,7 @@ import shutil
 import mir_eval
 import pathlib
 
-plt.switch_backend('agg')
+# plt.switch_backend('agg')
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -203,7 +203,7 @@ def Smooth_sdt6(predict_sdt, threshold=0.5):
                 est_intervals.append([0.02 * Tpeaks[t_idx] + 0.01, 0.02 * Tpeaks[t_idx + 1] + 0.01])
             assert (Tpeaks[t_idx] < Tpeaks[t_idx + 1])
             t_idx += 2
-            if t_idx > len(Tpeaks)-1:
+            if t_idx > len(Tpeaks)-2:
                 break
         elif Tpeaks[t_idx] in onpeaks and Tpeaks[t_idx + 1] in onpeaks:
             offset_inserted = find_first_bellow_thres(dSeq[Tpeaks[t_idx]:Tpeaks[t_idx + 1]]) + Tpeaks[t_idx]
@@ -237,9 +237,9 @@ def Smooth_sdt6(predict_sdt, threshold=0.5):
     offSeq_np = np.array(offSeq, dtype=float)
 
 
-    print(np.ndarray(shape=(len(est_intervals), 2), dtype=float,
-                      buffer=np.array(est_intervals)),"\n", sSeq_np,"\n", dSeq_np,"\n", onSeq_np,"\n", offSeq_np,"\n", MissingT / (
-                   len(Tpeaks) + AddingT))
+    # print(np.ndarray(shape=(len(est_intervals), 2), dtype=float,
+    #                   buffer=np.array(est_intervals)),"\n", sSeq_np,"\n", dSeq_np,"\n", onSeq_np,"\n", offSeq_np,"\n", MissingT / (
+    #                len(Tpeaks) + AddingT))
     # return np.ndarray(shape=(len(onset_times),), dtype=float, buffer=np.array(onset_times)), np.ndarray(shape=(len(offset_times),), dtype=float, buffer=np.array(offset_times)), sSeq_np, dSeq_np, tSeq_np
     return np.array(est_intervals, dtype=float), sSeq_np, dSeq_np, onSeq_np, offSeq_np, MissingT / (len(Tpeaks) + AddingT)
 
@@ -295,6 +295,9 @@ def testset_evaluation(path, f_path, model=None, writer_in=None, timestep=None):
         zero_pad = np.zeros((features_full.shape[0], 9))
         features_full = np.concatenate((zero_pad, features_full), axis=1)
         features_full = np.concatenate((features_full, zero_pad), axis=1)
+        features_full = abs(features_full)
+        features_full = np.power(features_full/features_full.max(), 4) #normalize &gamma compression
+
 
         for test_step in range(features_full.shape[1] - 18):
             curr_clip = features_full[:, test_step:test_step + 19]
@@ -369,6 +372,8 @@ def whole_song_sampletest(path, f_path, model=None, writer_in=None, timestep=Non
         zero_pad = np.zeros((features_full.shape[0], 9))
         features_full = np.concatenate((zero_pad, features_full), axis=1)
         features_full = np.concatenate((features_full, zero_pad), axis=1)
+        features_full = abs(features_full)
+        features_full = np.power(features_full/features_full.max(), 4) #normalize &gamma compression
 
         for test_step in range(features_full.shape[1] - 18):
             curr_clip = features_full[:, test_step:test_step + 19]

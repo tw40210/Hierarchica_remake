@@ -59,7 +59,7 @@ class mydataset(Dataset):
                 while(True):
                     start = random.randint(0, features_full.shape[1]-hparam.randomsample_size-19)
                     backstep=0
-                    while(True):
+                    while(True):   # find one closest onoff step
                         if label_note[start+backstep+9][2]==1 or label_note[start+backstep+9][4]==1:
                             break
                         else:
@@ -96,12 +96,15 @@ class mydataset(Dataset):
         # zero_pad = torch.zeros((features_full.shape[0], 9))
         # features_full = torch.cat((zero_pad ,features_full), dim=1) #padding because we need 9 forward and backward
         # features_full = torch.cat(( features_full,zero_pad), dim=1)
-        new_features_full= new_features_full.view(9,174,-1)
+        new_features_full = new_features_full.view(9,174,-1)
+
+        new_features_full = abs(new_features_full)
+        new_features_full = np.power(new_features_full/new_features_full.max(), 4) #normalize &gamma compression
+
         new_label_note = torch.from_numpy(np.array(new_label_note)).int()
 
 
         assert new_features_full.shape[2]==hparam.randomsample_size+18
-
 
         return new_features_full, new_label_note
 
