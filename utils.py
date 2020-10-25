@@ -183,7 +183,7 @@ def Smooth_sdt6(predict_sdt, threshold=0.5):
     AddingT = 0
     est_intervals = []
     t_idx = 0
-    while t_idx < len(Tpeaks)-1:
+    while t_idx < len(Tpeaks)-2:
 
         if t_idx == 0 and Tpeaks[t_idx] not in onpeaks:
             if intervalSD[0] == 1 and intervalSD[1] == 0:
@@ -281,8 +281,9 @@ def testset_evaluation(path, f_path, model=None, writer_in=None, timestep=None):
             break
         record = []
         features_full = np.load(features[index])
-
-        label_note = read_notefile(labels[index])
+        label_path = str(pathlib.Path(labels[index]).parent / (
+                    pathlib.Path(features[index]).stem.split('.')[0] + ".notes.Corrected"))
+        label_note = read_notefile(label_path)
         gt_label_sec_on, gt_label_sec_off = note2onoff_sec(label_note)
 
         label_note, label_pitch = note2timestep(label_note)
@@ -296,7 +297,7 @@ def testset_evaluation(path, f_path, model=None, writer_in=None, timestep=None):
         features_full = np.concatenate((zero_pad, features_full), axis=1)
         features_full = np.concatenate((features_full, zero_pad), axis=1)
         features_full = abs(features_full)
-        features_full = np.power(features_full/features_full.max(), 4) #normalize &gamma compression
+        features_full = np.power(features_full/features_full.max(), hparam.gamma_mu) #normalize &gamma compression
 
 
         for test_step in range(features_full.shape[1] - 18):
@@ -361,6 +362,10 @@ def whole_song_sampletest(path, f_path, model=None, writer_in=None, timestep=Non
         a = features[index]
         label_path = str(pathlib.Path(labels[index]).parent / (
                     pathlib.Path(features[index]).stem.split('.')[0] + ".notes.Corrected"))
+        if index ==1:
+            features_full = np.load("data/train/Process_data/FEAT/01-D_AMairena.wav_FEAT.npy") # if trainset isok?
+            label_path = "data/train/TONAS/Deblas/01-D_AMairena.notes.Corrected"
+
         label_note = read_notefile(label_path)
         label_note, label_pitch = note2timestep(label_note)
         label_note = np.array(label_note)
@@ -373,7 +378,7 @@ def whole_song_sampletest(path, f_path, model=None, writer_in=None, timestep=Non
         features_full = np.concatenate((zero_pad, features_full), axis=1)
         features_full = np.concatenate((features_full, zero_pad), axis=1)
         features_full = abs(features_full)
-        features_full = np.power(features_full/features_full.max(), 4) #normalize &gamma compression
+        features_full = np.power(features_full/features_full.max(), hparam.gamma_mu) #normalize &gamma compression
 
         for test_step in range(features_full.shape[1] - 18):
             curr_clip = features_full[:, test_step:test_step + 19]
@@ -575,7 +580,11 @@ if __name__ == '__main__':
     model.load_state_dict(torch.load("checkpoint/1920.pth"))
     print("load OK")
 
-    testset_evaluation(path, f_path, model=model)
+    # testset_evaluation(path, f_path, model=model)
+
+    testsample_path = hparam.testsample_path
+    testsample_f_path = hparam.testsample_f_path
+    whole_song_sampletest(testsample_path, testsample_f_path, model=model)
 
     # for file in os.listdir('data/train/TONAS/Deblas/'):
     #     if '.notes.Corrected' in file:

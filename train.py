@@ -54,7 +54,7 @@ def train():
     # model.fc = nn.Linear(model.fc.in_features, 6)
     # model.avgpool = nn.AvgPool2d(kernel_size=(17, 1), stride=1, padding=0)
     model= get_Resnet().to(device)
-    model.load_state_dict(torch.load("standard_checkpoint/4680_1020.pth"))
+    model.load_state_dict(torch.load("checkpoint/960.pth"))
     print("load OK")
 
     optimizer = optim.RMSprop(model.parameters(), lr=hparam.lr, weight_decay=0, momentum=0.9)
@@ -74,6 +74,7 @@ def train():
             for features_full, label_note in bar :
                 features_full=features_full.to(device)
                 label_note = label_note.to(device)
+
                 for clip_id in range(features_full.shape[-1]-18):
                     features_full_clip = features_full[:,:,:,clip_id:clip_id+19]
                     label_note_clip = label_note[:,clip_id:clip_id+1,:]

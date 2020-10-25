@@ -12,9 +12,9 @@ import librosa
 
 
 
-file_path="data/train/Process_data/FEAT/02-D_ChanoLobato.wav_FEAT.npy"
-label_path = "data/train/TONAS/Deblas/02-D_ChanoLobato.notes.Corrected"
-wav_path = "data/train/TONAS/Deblas/02-D_ChanoLobato.wav"
+file_path="data/test/Process_data/FEAT/afemale1.wav_FEAT.npy"
+label_path = "data/test/EvaluationFramework_ISMIR2014/DATASET/afemale1.notes.Corrected"
+wav_path = "data/test/EvaluationFramework_ISMIR2014/DATASET/afemale1.wav"
 
 y, sr = librosa.load(wav_path, sr=hparam.sr)
 
@@ -28,7 +28,7 @@ norm = feat.max()
 feat = feat/norm
 norm2 = feat.max()
 feat = abs(feat)
-feat = np.power(feat, 0.5)
+feat = np.power(feat, 1/2)
 feat = feat[:, :s_label.shape[0]]
 
 plt.figure(figsize=(7, 12))

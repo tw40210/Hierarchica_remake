@@ -6,6 +6,7 @@ import numpy as np
 from utils import read_notefile, note2timestep, silence_label, expand_onoff_label
 import hparam
 import random
+import pathlib
 
 SEED=0
 random.seed(SEED)
@@ -36,7 +37,12 @@ class mydataset(Dataset):
         # features_full = np.load(dir)
         features_full = np.load(self.features[index])
 
-        label_note = read_notefile(self.labels[index])
+        label_path = str(pathlib.Path(self.labels[index]).parent / (
+                    pathlib.Path(self.features[index]).stem.split('.')[0] + ".notes.Corrected"))
+
+        label_note = read_notefile(label_path)
+        # print(self.features[index], "||", label_path)
+
         label_note, label_pitch = note2timestep(label_note)
         label_note = np.array(label_note)
 
@@ -71,7 +77,9 @@ class mydataset(Dataset):
 
 
                     new_features_full = features_full[:,start+backstep:start+backstep+hparam.randomsample_size+18]
+
                     new_label_note = label_note[start+backstep+9:start+backstep+int(hparam.randomsample_size)+9]
+
                     for note in new_label_note:
                         if(note[2]==1 or note[4]==1):
                             onoff_exist+=1
@@ -99,7 +107,7 @@ class mydataset(Dataset):
         new_features_full = new_features_full.view(9,174,-1)
 
         new_features_full = abs(new_features_full)
-        new_features_full = np.power(new_features_full/new_features_full.max(), 4) #normalize &gamma compression
+        new_features_full = np.power(new_features_full/new_features_full.max(), hparam.gamma_mu) #normalize &gamma compression
 
         new_label_note = torch.from_numpy(np.array(new_label_note)).int()
 
