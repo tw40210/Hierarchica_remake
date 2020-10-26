@@ -184,6 +184,7 @@ class ResNet(nn.Module):
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
+        # x = self.dropout(x)
         x = self.maxpool(x)
 
         x = self.layer1(x)
@@ -193,7 +194,7 @@ class ResNet(nn.Module):
 
         x = self.avgpool(x)
         x = torch.flatten(x, 1)
-        x = self.dropout(x)
+        # x = self.dropout(x)
         x = self.fc(x)
         x = self.sigmoid(x)
 

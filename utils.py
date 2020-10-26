@@ -313,7 +313,7 @@ def testset_evaluation(path, f_path, model=None, writer_in=None, timestep=None):
             record.append(out_label)
 
         record = np.array(record)
-        print(record.shape)
+        print(features[index])
         est_intervals,_,_,_,_,_ = Smooth_sdt6(record)
         # est_labels = output2label(record, is_batch=False, is_nparray=True)
         # est_label_sec_on, est_label_sec_off = timestep2second(est_labels)

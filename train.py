@@ -1,23 +1,18 @@
-import torch
-import torch.nn as nn
-import numpy as np
-from torch.utils.data.dataset import Dataset
-from torch.utils.data import DataLoader
-import torch
-import os
-import numpy as np
-from utils import read_notefile, note2timestep, get_accuracy, whole_song_sampletest, Logger, get_Resnet, testset_evaluation
-import hparam
 import random
-from tqdm import tqdm
-from dataset import mydataset
-from model import ResNet, BasicBlock, get_BCE_loss
-from torch import optim
+
+import numpy as np
+import torch
 from tensorboardX import SummaryWriter
-import mir_eval
+from torch import optim
+from torch.utils.data import DataLoader
+from tqdm import tqdm
 
+import hparam
+from dataset import mydataset
+from model import get_BCE_loss
+from utils import get_accuracy, whole_song_sampletest, Logger, get_Resnet, testset_evaluation
 
-
+tensor_comment = "no_dropout"
 SEED=0
 random.seed(SEED)
 np.random.seed(SEED)
@@ -54,7 +49,7 @@ def train():
     # model.fc = nn.Linear(model.fc.in_features, 6)
     # model.avgpool = nn.AvgPool2d(kernel_size=(17, 1), stride=1, padding=0)
     model= get_Resnet().to(device)
-    model.load_state_dict(torch.load("checkpoint/960.pth"))
+    model.load_state_dict(torch.load("standard_checkpoint/9360_1025.pth"))
     print("load OK")
 
     optimizer = optim.RMSprop(model.parameters(), lr=hparam.lr, weight_decay=0, momentum=0.9)
@@ -66,7 +61,7 @@ def train():
 
     step_count =0
     ori_runlist = logger.get_runsdir()
-    with SummaryWriter() as writer:
+    with SummaryWriter(comment=tensor_comment) as writer:
         new_rundir = logger.get_new_runsdir(ori_runlist)
         logger.save_codebackup(hparam.modelcode_path, new_rundir)
         for epoch in range(hparam.epoch):
