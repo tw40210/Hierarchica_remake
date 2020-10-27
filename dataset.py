@@ -8,20 +8,28 @@ import hparam
 import random
 import pathlib
 
-SEED=0
+SEED = 0
 random.seed(SEED)
 np.random.seed(SEED)
 torch.manual_seed(SEED)
 torch.cuda.manual_seed(SEED)
 
+
 class mydataset(Dataset):
-    def __init__(self, path, f_path, amount =None):
-        self.wav_files = [os.path.join(path,file ) for file in os.listdir(path) if '.wav' in file]
-        self.labels = [os.path.join(path,label ) for label in os.listdir(path) if'.notes.' in label]
-        self.features = [os.path.join(f_path,features )  for features in os.listdir(f_path) if '_FEAT' in features]
+    def __init__(self, path, f_path, amount=None, augmentation=None):
+        self.wav_files = []
+        self.labels = []
+        self.features = []
+        assert len(path)==len(f_path)
+
+        for path_id in range(len(path)):
+            self.wav_files = self.wav_files + [os.path.join(path[path_id], file) for file in os.listdir(path[path_id]) if '.wav' in file]
+            self.labels = self.labels + [os.path.join(path[path_id], label) for label in os.listdir(path[path_id]) if '.notes.' in label]
+            self.features = self.features + [os.path.join(f_path[path_id], features) for features in os.listdir(f_path[path_id]) if '_FEAT' in features]
+            self.augmentation = augmentation
 
         if amount:
-            while(len(self.wav_files)<amount):
+            while (len(self.wav_files) < amount):
                 self.wav_files = self.wav_files + self.wav_files
                 self.labels = self.labels + self.labels
                 self.features = self.features + self.features
@@ -38,7 +46,7 @@ class mydataset(Dataset):
         features_full = np.load(self.features[index])
 
         label_path = str(pathlib.Path(self.labels[index]).parent / (
-                    pathlib.Path(self.features[index]).stem.split('.')[0] + ".notes.Corrected"))
+                pathlib.Path(self.features[index]).stem.split('.')[0] + ".notes.Corrected"))
 
         label_note = read_notefile(label_path)
         # print(self.features[index], "||", label_path)
@@ -52,40 +60,38 @@ class mydataset(Dataset):
         # cut muted tail from feature
         features_full = features_full[:, :label_note.shape[0]]
 
+        # == random sampling
 
-        #== random sampling
+        if features_full.shape[1] > hparam.randomsample_size - 1:
+            onoff_exist = 0
+            rate = random.randint(0, 100)  # only choose onoff set in specific possibility
+            if rate < 70:
 
-
-
-        if features_full.shape[1]>hparam.randomsample_size-1:
-            onoff_exist=0
-            rate = random.randint(0,100)   # only choose onoff set in specific possibility
-            if rate<10:
-
-                while(True):
-                    start = random.randint(0, features_full.shape[1]-hparam.randomsample_size-19)
-                    backstep=0
-                    while(True):   # find one closest onoff step
-                        if label_note[start+backstep+9][2]==1 or label_note[start+backstep+9][4]==1:
+                while (True):
+                    start = random.randint(0, features_full.shape[1] - hparam.randomsample_size - 19)
+                    backstep = 0
+                    while (True):  # find one closest onoff step
+                        if label_note[start + backstep + 9][2] == 1 or label_note[start + backstep + 9][4] == 1:
                             break
                         else:
-                            backstep+=1
+                            backstep += 1
 
-                        if start+backstep+hparam.randomsample_size+18> features_full.shape[1]-2:
+                        if start + backstep + hparam.randomsample_size + 18 > features_full.shape[1] - 2:
                             start = random.randint(0, features_full.shape[1] - hparam.randomsample_size - 19)
                             backstep = 0
 
+                    new_features_full = features_full[:,
+                                        start + backstep:start + backstep + hparam.randomsample_size + 18]
 
-                    new_features_full = features_full[:,start+backstep:start+backstep+hparam.randomsample_size+18]
-
-                    new_label_note = label_note[start+backstep+9:start+backstep+int(hparam.randomsample_size)+9]
+                    new_label_note = label_note[
+                                     start + backstep + 9:start + backstep + int(hparam.randomsample_size) + 9]
 
                     for note in new_label_note:
-                        if(note[2]==1 or note[4]==1):
-                            onoff_exist+=1
-                    if(onoff_exist>1):
+                        if (note[2] == 1 or note[4] == 1):
+                            onoff_exist += 1
+                    if (onoff_exist > 5):
                         break
-                    onoff_exist=0
+                    onoff_exist = 0
             else:
                 start = random.randint(0, features_full.shape[1] - hparam.randomsample_size - 19)
                 new_features_full = features_full[:, start:start + hparam.randomsample_size + 18]
@@ -100,19 +106,21 @@ class mydataset(Dataset):
             zero_pad = silence_label((hparam.randomsample_size - label_note.shape[0], label_note.shape[1]))
             new_label_note = np.concatenate((label_note, zero_pad), axis=0)
 
-        new_features_full= torch.from_numpy(new_features_full).float()
+        new_features_full = torch.from_numpy(new_features_full).float()
         # zero_pad = torch.zeros((features_full.shape[0], 9))
         # features_full = torch.cat((zero_pad ,features_full), dim=1) #padding because we need 9 forward and backward
         # features_full = torch.cat(( features_full,zero_pad), dim=1)
-        new_features_full = new_features_full.view(9,174,-1)
+        new_features_full = new_features_full.view(9, 174, -1)
 
         new_features_full = abs(new_features_full)
-        new_features_full = np.power(new_features_full/new_features_full.max(), hparam.gamma_mu) #normalize &gamma compression
+        new_features_full = np.power(new_features_full / new_features_full.max(),
+                                     hparam.gamma_mu)  # normalize &gamma compression
 
         new_label_note = torch.from_numpy(np.array(new_label_note)).int()
-
-
-        assert new_features_full.shape[2]==hparam.randomsample_size+18
+        if self.augmentation:
+            for func in self.augmentation:
+                new_features_full = func.process(new_features_full)
+        assert new_features_full.shape[2] == hparam.randomsample_size + 18
 
         return new_features_full, new_label_note
 
@@ -120,12 +128,31 @@ class mydataset(Dataset):
         return len(self.features)
 
 
+class Random_volume(object):
+    def __init__(self, rate, min_range, max_range):
+        self.rate = rate
+        self.min_range = min_range
+        self.max_range = max_range
+
+    def process(self, data):
+        if random.random() > self.rate:
+            assert self.min_range <= self.max_range
+            assert self.min_range >= 0
+            scale = random.uniform(self.min_range, self.max_range)
+            data *= scale
+            return data
+        else:
+            return data
+
     ##############################################
+
+
 if __name__ == '__main__':
     path = 'data/train/TONAS/Deblas'
-    f_path ='data/train/Process_data/FEAT'
+    f_path = 'data/train/Process_data/FEAT'
 
-    dataloader = DataLoader(mydataset(path, f_path), batch_size = hparam.batch_size, shuffle=True, num_workers=hparam.num_workers)
+    dataloader = DataLoader(mydataset(path, f_path), batch_size=hparam.batch_size, shuffle=True,
+                            num_workers=hparam.num_workers)
 
     for features_full, label_note in dataloader:
         print(features_full.shape, "|||", label_note.shape)

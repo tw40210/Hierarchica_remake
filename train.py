@@ -1,4 +1,6 @@
 import random
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 import numpy as np
 import torch
@@ -8,37 +10,40 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 import hparam
-from dataset import mydataset
+from dataset import mydataset, Random_volume
 from model import get_BCE_loss
 from utils import get_accuracy, whole_song_sampletest, Logger, get_Resnet, testset_evaluation
 
-tensor_comment = "no_dropout"
+
+tensor_comment = "volume_pitch_aug_thre04_pos05"
 SEED=0
 random.seed(SEED)
 np.random.seed(SEED)
 torch.manual_seed(SEED)
 torch.cuda.manual_seed(SEED)
 
-device=torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
-
-train_path = 'data/train/TONAS/Deblas'
-train_f_path = 'data/train/Process_data/FEAT'
-
-test_path = 'data/test/EvaluationFramework_ISMIR2014/DATASET'
-test_f_path = 'data/test/Process_data/FEAT'
-
-if torch.cuda.is_available():
-    print("cuda")
-else:
-    print("cpu")
 
 
 def train():
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    train_dataloader = DataLoader(mydataset(train_path, train_f_path, amount=10000), batch_size=hparam.batch_size, shuffle=True,
+    train_path = ['data/train/TONAS/Deblas',
+                  "data/train_extension"]
+    train_f_path = ['data/train/Process_data/FEAT',
+                    "data/train_extension_Process_data/FEAT"]
+    test_path = ['data/test/EvaluationFramework_ISMIR2014/DATASET']
+    test_f_path = ['data/test/Process_data/FEAT']
+
+    if torch.cuda.is_available():
+        print("cuda")
+    else:
+        print("cpu")
+
+    augmentation = [Random_volume(rate=0.5, min_range=0.5, max_range=1.5)]
+
+    train_dataloader = DataLoader(mydataset(train_path, train_f_path, amount=10000, augmentation= augmentation), batch_size=hparam.batch_size, shuffle=True,
                             num_workers=hparam.num_workers)
-    test_dataloader = DataLoader(mydataset(hparam.test_path, hparam.test_f_path), batch_size=hparam.batch_size, shuffle=True,
+    test_dataloader = DataLoader(mydataset(test_path, test_f_path), batch_size=hparam.batch_size, shuffle=True,
                             num_workers=hparam.num_workers)
 
 
@@ -49,7 +54,7 @@ def train():
     # model.fc = nn.Linear(model.fc.in_features, 6)
     # model.avgpool = nn.AvgPool2d(kernel_size=(17, 1), stride=1, padding=0)
     model= get_Resnet().to(device)
-    model.load_state_dict(torch.load("standard_checkpoint/9360_1025.pth"))
+    model.load_state_dict(torch.load("standard_checkpoint/5280_augset_1028.pth"))
     print("load OK")
 
     optimizer = optim.RMSprop(model.parameters(), lr=hparam.lr, weight_decay=0, momentum=0.9)
@@ -123,10 +128,10 @@ def train():
                     logger.save_modelbackup(model, new_rundir)
                     print(f'saved in {step_count}\n')
 
-                    test_path = hparam.test_path
-                    test_f_path = hparam.test_f_path
+                    test_eval_path = test_path[0]
+                    test_eval_f_path = test_f_path[0]
 
-                    testset_evaluation(test_path, test_f_path, model=model, writer_in=writer, timestep=step_count)
+                    testset_evaluation(test_eval_path, test_eval_f_path, model=model, writer_in=writer, timestep=step_count)
 
 
 

@@ -104,7 +104,7 @@ def find_first_bellow_thres(aSeq):
     return first_bellow_frame
 
 
-def Smooth_sdt6(predict_sdt, threshold=0.5):
+def Smooth_sdt6(predict_sdt, threshold=0.4):
     # predict shape: (time step, 3)
     Filter = np.ndarray(shape=(5,), dtype=float, buffer=np.array([0.25, 0.5, 1.0, 0.5, 0.25]))
     # Filter = np.ndarray(shape=(5,), dtype=float, buffer=np.array([1.0, 1.0, 1.0, 1.0, 1.0]))
