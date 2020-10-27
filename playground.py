@@ -1,44 +1,78 @@
 # from torch.utils.data.dataset import Dataset
 # from torch.utils.data import DataLoader
-import torch
+# import torch
 import os
 import numpy as np
-from utils import read_notefile, note2timestep
+# from utils import read_notefile, note2timestep
 import hparam
 import random
 import matplotlib.pyplot as plt
 import pathlib
+import pyworld as pw
 import librosa
+from tqdm import tqdm
+
+
+def write_label(src_path, tar_path, action, scale):
+    with open(src_path, 'r') as src_txt:
+
+        all = []
+        for line in src_txt.readlines():
+            this_line = []
+            for i in line.split(", "):
+                this_line.append(float(i))
+            all.append(this_line)
+
+        with open(tar_path, 'w') as tar_txt:
+            for line in all:
+                for index, item in enumerate(line):
+                    if index == 2:
+                        if action == "dw":
+                            tar_txt.write(str(item - scale))
+
+                        else:
+                            tar_txt.write(str(item + scale))
+                    else:
+                        tar_txt.write(str(item))
+
+                    if index < len(line) - 1:
+                        tar_txt.write(", ")
+                tar_txt.write("\n")
+
+    print(tar_path)
+
+
+src_path = "data\\train/TONAS/Deblas"
+tar_path = "data/train/train_extension"
+fs= 44100
+actions = ["dw", "up"]
+scales = [ 1, 2]
+for file in tqdm(os.listdir(src_path)):
+        if ".wav" in file:
+            for action in actions:
+                for scale in scales:
+                    wavfile= os.path.join(src_path, file)
+                    labelfile = os.path.join(src_path, f"{file[:-4]}.notes.Corrected")
+
+                    tarwavfile = os.path.join(tar_path, f"{file[:-4]}_{action}{scale}.wav")
+                    tarlabelfile = os.path.join(tar_path,f"{file[:-4]}_{action}{scale}.notes.Corrected")
+
+                    y, sr = librosa.load(wavfile, sr=fs)
+                    y = np.array(y, dtype="double")
+                    f0, sp, ap = pw.wav2world(y, fs)
+
+                    if action=="dw":
+                        f0 = f0 / np.power(2, 1 / (12/scale))
+                    else:
+                        f0 = f0 * np.power(2, 1 / (12 / scale))
+
+                    new_y = pw.synthesize(f0, sp, ap, fs)
+                    new_y = np.array(new_y, dtype="float")
+                    librosa.output.write_wav(tarwavfile, new_y, sr=fs)
+
+                    write_label(labelfile, tarlabelfile, action, scale)
 
 
 
-file_path="data/test/Process_data/FEAT/afemale1.wav_FEAT.npy"
-label_path = "data/test/EvaluationFramework_ISMIR2014/DATASET/afemale1.notes.Corrected"
-wav_path = "data/test/EvaluationFramework_ISMIR2014/DATASET/afemale1.wav"
 
-y, sr = librosa.load(wav_path, sr=hparam.sr)
-
-label_note = read_notefile(label_path)
-label_note, label_pitch = note2timestep(label_note)
-label_note = np.array(label_note)
-s_label = label_note[:, 0]
-
-feat = np.load(file_path)
-norm = feat.max()
-feat = feat/norm
-norm2 = feat.max()
-feat = abs(feat)
-feat = np.power(feat, 1/2)
-feat = feat[:, :s_label.shape[0]]
-
-plt.figure(figsize=(7, 12))
-plt.subplots_adjust(wspace=0, hspace=1)
-
-
-plt.imshow(feat, vmax=feat.max())
-plt.show()
-
-plt.plot(s_label)
-
-plt.show()
 

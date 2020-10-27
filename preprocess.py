@@ -14,6 +14,8 @@ import argparse
 import hparam
 from keras.models import load_model
 import matplotlib.pyplot as plt
+import os
+from tqdm import tqdm
 
 
 def STFT(x, fr, fs, Hop, h):
@@ -439,19 +441,26 @@ if __name__ == "__main__":
     # args = parser.parse_args()
     # melody_extraction(args.InFile, args.OutFile_P)
     # output_feature_extraction(args.InFile, args.OutFile_FEAT, args.OutFile_Z, args.OutFile_CF)
+    wav_dir = "data/train/train_extension"
+    tar_dir = "data/train/train_extension_Process_data"
+    os.makedirs(tar_dir, exist_ok=True)
 
-    InFile = "data/train/TONAS/Deblas\\48-M1_JuanTalega.wav"
-    OutFile_FEAT = "FEAT.npy"
-    OutFile_Z = "Z.npy"
-    OutFile_CF = "CF.npy"
-    OutFile_P = "P.npy"
+    for wavfile in tqdm(os.listdir(wav_dir)) :
+        if ".wav" in wavfile and not os.path.isfile(os.path.join(tar_dir,"FEAT" ,  f"{wavfile[:-4]}_FEAT.npy")):
+            InFile = os.path.join(wav_dir, wavfile)
+            os.makedirs(os.path.join(tar_dir,"FEAT"), exist_ok=True)
+            OutFile_FEAT = os.path.join(tar_dir,"FEAT" ,  f"{wavfile[:-4]}_FEAT.npy")
+            os.makedirs(os.path.join(tar_dir, "Z"), exist_ok=True)
+            OutFile_Z = os.path.join(tar_dir, "Z", f"{wavfile[:-4]}_Z.npy")
+            os.makedirs(os.path.join(tar_dir, "CF"), exist_ok=True)
+            OutFile_CF = os.path.join(tar_dir, "CF", f"{wavfile[:-4]}_CF.npy")
+            os.makedirs(os.path.join(tar_dir, "P"), exist_ok=True)
+            OutFile_P = os.path.join(tar_dir, "P", f"{wavfile[:-4]}_P.npy")
 
-    melody_extraction(InFile, OutFile_P)
-    output_feature_extraction(InFile, OutFile_FEAT, OutFile_Z, OutFile_CF)
+            melody_extraction(InFile, OutFile_P)
+            output_feature_extraction(InFile, OutFile_FEAT, OutFile_Z, OutFile_CF)
+            print(InFile)
 
-    FEAT = np.load(OutFile_FEAT, allow_pickle=True)
-    P = np.load(OutFile_P, allow_pickle=True)
-    Z = np.load(OutFile_Z, allow_pickle=True)
-    CF = np.load(OutFile_CF, allow_pickle=True)
+
 
     print("finish!")
