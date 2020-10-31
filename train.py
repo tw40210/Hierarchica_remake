@@ -1,6 +1,6 @@
 import random
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 import numpy as np
 import torch
@@ -15,7 +15,7 @@ from model import get_BCE_loss
 from utils import get_accuracy, whole_song_sampletest, Logger, get_Resnet, testset_evaluation
 
 
-tensor_comment = "volume_pitch_aug_thre04_pos05"
+tensor_comment = "thre05_pos12_batch32_testall"
 SEED=0
 random.seed(SEED)
 np.random.seed(SEED)
@@ -72,12 +72,9 @@ def train():
         for epoch in range(hparam.epoch):
             bar = tqdm(train_dataloader)
             for features_full, label_note in bar :
-                features_full=features_full.to(device)
-                label_note = label_note.to(device)
-
-                for clip_id in range(features_full.shape[-1]-18):
-                    features_full_clip = features_full[:,:,:,clip_id:clip_id+19]
-                    label_note_clip = label_note[:,clip_id:clip_id+1,:]
+                for clip_id in range(features_full.shape[-1]//19):
+                    features_full_clip = features_full[:,:,:,clip_id*19:(clip_id+1)*19].to(device)
+                    label_note_clip = label_note[:,clip_id:clip_id+1,:].to(device)
 
                     optimizer.zero_grad()
 
@@ -93,16 +90,11 @@ def train():
                     acc_sumloss = 0
                     batch_count = 0
 
-
                     for features_full, label_note in test_dataloader:
-                        features_full = features_full.to(device)
-                        label_note = label_note.to(device)
-                        for clip_id in range(features_full.shape[-1] - 18-hparam.randomsample_size+5):
-                            features_full_clip = features_full[:, :, :, clip_id:clip_id + 19]
-                            label_note_clip = label_note[:, clip_id:clip_id + 1, :]
-
+                        for clip_id in range(features_full.shape[-1] // 19):
+                            features_full_clip = features_full[:, :, :, clip_id * 19:(clip_id + 1) * 19].to(device)
+                            label_note_clip = label_note[:, clip_id:clip_id + 1, :].to(device)
                             out_label = model(features_full_clip)
-
 
                             test_loss = get_BCE_loss(out_label, label_note_clip)
                             test_sumloss+=test_loss
@@ -115,7 +107,10 @@ def train():
                     avg_loss = test_sumloss/batch_count
                     avg_acc = acc_sumloss / batch_count
                     writer.add_scalar(f'scalar/acc', avg_acc, step_count)
-                    writer.add_scalars(f'scalar/loss', {'train_loss':loss, 'test_loss':avg_loss}, step_count)
+                    writer.add_scalar(f'scalar/loss/test', avg_loss, step_count)
+                    writer.add_scalar(f'scalar/loss/train', loss, step_count)
+                    #
+                    # writer.add_scalars(f'scalar/loss', {'train_loss':loss, 'test_loss':avg_loss}, step_count)
 
                     bar.set_postfix({'loss':f' {loss} ' , 'test_loss': f' {avg_loss} ', 'test_acc': f' {avg_acc} '})
                     bar.update(1)

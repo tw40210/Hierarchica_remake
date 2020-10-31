@@ -9,6 +9,7 @@ step_to_test = 20
 step_to_save = 120
 whole_song_max_len= 700
 gamma_mu=1/2
+onoff = 12
 
 
 label_threshold = 0.5

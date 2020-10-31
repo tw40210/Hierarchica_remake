@@ -20,12 +20,15 @@ class mydataset(Dataset):
         self.wav_files = []
         self.labels = []
         self.features = []
-        assert len(path)==len(f_path)
+        assert len(path) == len(f_path)
 
         for path_id in range(len(path)):
-            self.wav_files = self.wav_files + [os.path.join(path[path_id], file) for file in os.listdir(path[path_id]) if '.wav' in file]
-            self.labels = self.labels + [os.path.join(path[path_id], label) for label in os.listdir(path[path_id]) if '.notes.' in label]
-            self.features = self.features + [os.path.join(f_path[path_id], features) for features in os.listdir(f_path[path_id]) if '_FEAT' in features]
+            self.wav_files = self.wav_files + [os.path.join(path[path_id], file) for file in os.listdir(path[path_id])
+                                               if '.wav' in file]
+            self.labels = self.labels + [os.path.join(path[path_id], label) for label in os.listdir(path[path_id]) if
+                                         '.notes.' in label]
+            self.features = self.features + [os.path.join(f_path[path_id], features) for features in
+                                             os.listdir(f_path[path_id]) if '_FEAT' in features]
             self.augmentation = augmentation
 
         if amount:
@@ -61,50 +64,40 @@ class mydataset(Dataset):
         features_full = features_full[:, :label_note.shape[0]]
 
         # == random sampling
+        new_label_note = []
+        new_features_full = []
+        min_onoff = hparam.onoff
+        zero_pad = np.zeros((features_full.shape[0], 9))
+        features_full = np.concatenate((zero_pad, features_full), axis=1)
+        features_full = np.concatenate((features_full, zero_pad), axis=1)
 
-        if features_full.shape[1] > hparam.randomsample_size - 1:
-            onoff_exist = 0
-            rate = random.randint(0, 100)  # only choose onoff set in specific possibility
-            if rate < 70:
-
-                while (True):
-                    start = random.randint(0, features_full.shape[1] - hparam.randomsample_size - 19)
-                    backstep = 0
-                    while (True):  # find one closest onoff step
-                        if label_note[start + backstep + 9][2] == 1 or label_note[start + backstep + 9][4] == 1:
+        if label_note.shape[0] > hparam.randomsample_size - 1:
+            for clip_id in range(hparam.randomsample_size):
+                start = random.randint(0, label_note.shape[0] - 2)
+                if clip_id < min_onoff:
+                    while (True):
+                        if label_note[start][2] == 1 or label_note[start][4] == 1:
+                            if clip_id == 0:
+                                new_features_full = np.array(features_full[:, start:start + 19])
+                            else:
+                                new_features_full = np.concatenate(
+                                    (new_features_full, features_full[:, start:start + 19]), axis=1)
+                            new_label_note.append(label_note[start])
                             break
                         else:
-                            backstep += 1
-
-                        if start + backstep + hparam.randomsample_size + 18 > features_full.shape[1] - 2:
-                            start = random.randint(0, features_full.shape[1] - hparam.randomsample_size - 19)
-                            backstep = 0
-
-                    new_features_full = features_full[:,
-                                        start + backstep:start + backstep + hparam.randomsample_size + 18]
-
-                    new_label_note = label_note[
-                                     start + backstep + 9:start + backstep + int(hparam.randomsample_size) + 9]
-
-                    for note in new_label_note:
-                        if (note[2] == 1 or note[4] == 1):
-                            onoff_exist += 1
-                    if (onoff_exist > 5):
-                        break
-                    onoff_exist = 0
-            else:
-                start = random.randint(0, features_full.shape[1] - hparam.randomsample_size - 19)
-                new_features_full = features_full[:, start:start + hparam.randomsample_size + 18]
-                new_label_note = label_note[start + 9:start + int(hparam.randomsample_size) + 9]
-
-
-
+                            start = random.randint(0, label_note.shape[0] - 2)
+                else:
+                    if clip_id == 0:
+                        new_features_full = np.array(features_full[:, start:start + 19])
+                    else:
+                        new_features_full = np.concatenate((new_features_full, features_full[:, start:start + 19]),
+                                                           axis=1)
+                    new_label_note.append(label_note[start])
         else:
-            # print(features_full.shape[1], label_note.shape[0], self.labels[index])
-            zero_pad = np.zeros((features_full.shape[0], hparam.randomsample_size - features_full.shape[1]))
-            new_features_full = np.concatenate((features_full, zero_pad), axis=1)
-            zero_pad = silence_label((hparam.randomsample_size - label_note.shape[0], label_note.shape[1]))
-            new_label_note = np.concatenate((label_note, zero_pad), axis=0)
+            print("Error!! audio is too short!")
+
+        # new_features_full = np.array(new_features_full)
+        new_label_note = np.array(new_label_note)
 
         new_features_full = torch.from_numpy(new_features_full).float()
         # zero_pad = torch.zeros((features_full.shape[0], 9))
@@ -116,11 +109,12 @@ class mydataset(Dataset):
         new_features_full = np.power(new_features_full / new_features_full.max(),
                                      hparam.gamma_mu)  # normalize &gamma compression
 
-        new_label_note = torch.from_numpy(np.array(new_label_note)).int()
+        new_label_note = torch.from_numpy(new_label_note).int()
         if self.augmentation:
             for func in self.augmentation:
                 new_features_full = func.process(new_features_full)
-        assert new_features_full.shape[2] == hparam.randomsample_size + 18
+        assert new_features_full.shape[2] == hparam.randomsample_size * 19
+        assert new_features_full.shape[2] == new_label_note.shape[0] * 19
 
         return new_features_full, new_label_note
 

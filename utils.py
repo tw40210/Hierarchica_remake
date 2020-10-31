@@ -16,10 +16,16 @@ from tensorboardX import SummaryWriter
 import shutil
 import mir_eval
 import pathlib
+import random
 
 # plt.switch_backend('agg')
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+SEED=0
+random.seed(SEED)
+np.random.seed(SEED)
+torch.manual_seed(SEED)
+torch.cuda.manual_seed(SEED)
 
 
 class Logger(object):
@@ -277,8 +283,8 @@ def testset_evaluation(path, f_path, model=None, writer_in=None, timestep=None):
     count = 0
     print("testing on testset for on/off_F1\n")
     for index in range(len(features)):
-        if count > 4:  # shorten test time by sampling
-            break
+        # if count > 4:  # shorten test time by sampling
+        #     break
         record = []
         features_full = np.load(features[index])
         label_path = str(pathlib.Path(labels[index]).parent / (
@@ -333,8 +339,11 @@ def testset_evaluation(path, f_path, model=None, writer_in=None, timestep=None):
         count += 1
         print(f"smooth_on_F1: {on_F}, smooth_off_F1: {off_F}")
 
+    writer.add_scalar(f'scalar/onoff/on_F1', sum_on_F1 / count, timestep)
+    writer.add_scalar(f'scalar/onoff/off_F1', sum_off_F1 / count, timestep)
 
-    writer.add_scalars(f"scalar\\onoff_F1", {'on_F1': sum_on_F1 / count, 'off_F1': sum_off_F1 / count}, timestep)
+    #
+    # writer.add_scalars(f"scalar\\onoff_F1", {'on_F1': sum_on_F1 / count, 'off_F1': sum_off_F1 / count}, timestep)
 
 
 def whole_song_sampletest(path, f_path, model=None, writer_in=None, timestep=None):
