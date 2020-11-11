@@ -15,7 +15,7 @@ from model import get_BCE_loss
 from utils import get_accuracy, whole_song_sampletest, Logger, get_Resnet, testset_evaluation
 
 
-tensor_comment = "thre05_pos12_batch32_testall"
+tensor_comment = "thre04_pos12_batch32_testall"
 SEED=0
 random.seed(SEED)
 np.random.seed(SEED)
