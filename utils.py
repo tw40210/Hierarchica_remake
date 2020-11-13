@@ -17,7 +17,7 @@ import shutil
 import mir_eval
 import pathlib
 import random
-
+import pyworld as pw
 # plt.switch_backend('agg')
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -289,6 +289,8 @@ def testset_evaluation(path, f_path, model=None, writer_in=None, timestep=None):
         features_full = np.load(features[index])
         label_path = str(pathlib.Path(labels[index]).parent / (
                     pathlib.Path(features[index]).stem.split('.')[0] + ".notes.Corrected"))
+        wav_path = str(pathlib.Path(labels[index]).parent / (
+                    pathlib.Path(features[index]).stem.split('.')[0] + ".wav"))
         label_note = read_notefile(label_path)
         gt_label_sec_on, gt_label_sec_off = note2onoff_sec(label_note)
 
@@ -330,6 +332,10 @@ def testset_evaluation(path, f_path, model=None, writer_in=None, timestep=None):
             est_smooth_label_sec_off.append(interval[1])
         est_smooth_label_sec_on = np.array(est_smooth_label_sec_on)
         est_smooth_label_sec_off = np.array(est_smooth_label_sec_off)
+
+        #===== pitch trace
+
+        onoff2note()
 
         on_F, on_P, on_R = mir_eval.onset.f_measure(gt_label_sec_on, est_smooth_label_sec_on)
         off_F, off_P, off_R = mir_eval.onset.f_measure(gt_label_sec_off, est_smooth_label_sec_off)
@@ -580,35 +586,168 @@ def note2timestep(notes: List):
 
     return timestep, pitch
 
+def get_pitch_steps():
+    pitch_steps = []
+    A4=440
+    midi_id=69
+    start =A4* np.power(1/2,midi_id/12)
+    step = np.power(2, 1/12)
+    pitch_steps.append(start)
+    for i in range(127):
+        start=start*step
+        pitch_steps.append(start)
+
+    return pitch_steps
+
+
+
+def pick_pitch(pitches, pitch_steps):
+    pitch_midiid=[]
+
+    for pitch in pitches:
+        pitch_id =0
+        while(pitch>pitch_steps[pitch_id]):
+            pitch_id+=1
+
+        if(abs(pitch_steps[pitch_id]-pitch)> abs(pitch_steps[pitch_id+1]-pitch) ):
+            pitch_id = pitch_id+1
+        pitch_midiid.append(pitch_id)
+
+    assert len(pitch_midiid)==len(pitches)
+
+    mid_pitch = np.median(np.array(pitch_midiid))
+    return mid_pitch
+
+
+def sec2sample(sec_array, timeresolution=200):
+    sec_array *= timeresolution
+    sample_array = np.array(list(map(int, sec_array)))
+    return sample_array
+
+
+def onoff2note(notes, wavfile, sr=44100):
+    pitch_steps =get_pitch_steps()
+
+    pitches=[]
+
+    pitch_midi_list = []
+    y, sr = librosa.load(wavfile, sr =sr,dtype="double")
+
+    _f0, t = pw.dio(y, sr)
+
+    assert notes[-1]*200 <= len(_f0)
+    for idx, note in enumerate(notes[:-1]) :
+        pitches=_f0[notes[idx]:notes[idx+1]]
+        length= len(pitches)
+        pitches = pitches[int(length/2):-int(length/4)]
+
+        pitch_midi_list.append(pick_pitch(pitches, pitch_steps))
+
+    return pitch_midi_list
+
+def onoff2note(onset_array, offset_array):
+    note_list=[]
+    tmp_list = []
+
+    oncount=0
+    offcount=0
+    count=0
+    on_id=0
+    off_id=0
+    while(True):
+        print(len(offset_array)-1)
+        if off_id>len(offset_array)-1 and on_id>len(onset_array)-1:
+            break
+        elif off_id>len(offset_array)-1:
+            tmp_list.append([onset_array[on_id], 1])
+            on_id+=1
+            count += 1
+            continue
+        elif on_id>len(onset_array)-1:
+            tmp_list.append([offset_array[off_id], 0])
+            off_id+=1
+            count+=1
+            continue
+
+
+        if onset_array[on_id]>offset_array[off_id]:
+            tmp_list.append([offset_array[off_id], 0])
+            off_id+=1
+            count+=1
+        else:
+            tmp_list.append([onset_array[on_id], 1])
+            on_id+=1
+            count += 1
+
+    for idx,  tmpitem in enumerate(tmp_list) : #remove all off before first on
+        if tmpitem[1]==0:
+            offcount+=1
+        else:
+            break
+
+    for idx,  tmpitem in enumerate(tmp_list) : #remove all on after last off
+
+        if tmp_list[-(idx+1)][1]==1:
+            oncount+=1
+        else:
+            break
+
+    if oncount==0:
+        tmp_list = tmp_list[offcount:]
+    else:
+        tmp_list = tmp_list[offcount:-oncount]
+
+    adjust_idx =[]
+    for id in range(len(tmp_list[:-1])):
+        if id==0:
+            if tmp_list[id+1][1]==1:
+                tmp_list.insert(id+1, [tmp_list[id+1][0], 0])
+                adjust_idx.append([id+1, 0])
+            continue
+
+        if tmp_list[id][1]== 1 and tmp_list[id+1][1]== 1:
+            adjust_idx.append([id + 1, 0])
+        elif tmp_list[id][1]== 0 and tmp_list[id+1][1]== 0:
+            adjust_idx.append([id + 1, -1])
+
+    adj_count=0
+    for item in adjust_idx:
+        if item[1]==0:
+            tmp_list.insert(item[0]+adj_count, [tmp_list[item[0]+adj_count][0],0])
+            adj_count+=1
+        elif item[1]==-1:
+            del tmp_list[item[0]+adj_count]
+            adj_count -= 1
+
+    count=0
+    assert len(tmp_list)%2==0
+    while(count<len(tmp_list)):
+        note_list.append([tmp_list[count][0], tmp_list[count+1][0]])
+        count+=2
+
+    return np.array(note_list)
+
+
+
+
+
+
 
 if __name__ == '__main__':
     path = "data/test/EvaluationFramework_ISMIR2014/DATASET"
     f_path = "data/test/Process_data/FEAT"
 
-    model= get_Resnet().to(device)
-    model.load_state_dict(torch.load("checkpoint/1920.pth"))
-    print("load OK")
+    onset=[0.1,0.256,0.279,0.336,0.469,0.53]
+    offset=[0.01,0.23,0.266,0.267,0.39,0.4]
+    onoff2note(onset, offset)
+
+    # model= get_Resnet().to(device)
+    # model.load_state_dict(torch.load("checkpoint/5280_augset_1028.pth"))
+    # print("load OK")
 
     # testset_evaluation(path, f_path, model=model)
 
-    testsample_path = hparam.testsample_path
-    testsample_f_path = hparam.testsample_f_path
-    whole_song_sampletest(testsample_path, testsample_f_path, model=model)
-
-    # for file in os.listdir('data/train/TONAS/Deblas/'):
-    #     if '.notes.Corrected' in file:
-    #         dir = f'data/train/TONAS/Deblas/{file}'
-    #         notes = read_notefile(dir)
-    #         aa,pp = note2timestep(notes)
-    #
-    #         print(((notes[-1][0]+notes[-1][1]+1e-4)//0.02+1)*0.02, len(aa)*0.02,file)
-    #         assert ((notes[-1][0]+notes[-1][1]+1e-4)//0.02+1)*0.02==len(aa)*0.02
-    #
-    #         aa = np.array(aa)
-    #         pp = np.array(pp)
-
-    # dir = f'data/train/TONAS/Deblas/52-M1_ManueldeAngustias.notes.Corrected'
-    # notes = read_notefile(dir)
-    # aa,pp = note2timestep(notes)
-    # aa = np.array(aa)
-    # pp = np.array(pp)
+    # testsample_path = hparam.testsample_path
+    # testsample_f_path = hparam.testsample_f_path
+    # testset_evaluation(testsample_path, testsample_f_path, model=model)
+    # whole_song_sampletest(testsample_path, testsample_f_path, model=model)
