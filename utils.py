@@ -18,10 +18,11 @@ import mir_eval
 import pathlib
 import random
 import pyworld as pw
+
 # plt.switch_backend('agg')
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-SEED=0
+SEED = 0
 random.seed(SEED)
 np.random.seed(SEED)
 torch.manual_seed(SEED)
@@ -173,7 +174,7 @@ def Smooth_sdt6(predict_sdt, threshold=0.4):
     # determine onset/offset by silence, duration
     # intervalSD = [0,1,0,1,...], 0:silence, 1:duration
     if len(onpeaks) == 0 or len(offpeaks) == 0:
-        return [],[],[],[],[],0
+        return [], [], [], [], [], 0
 
     Tpeaks = onpeaks + offpeaks
     Tpeaks.sort()
@@ -189,7 +190,7 @@ def Smooth_sdt6(predict_sdt, threshold=0.4):
     AddingT = 0
     est_intervals = []
     t_idx = 0
-    while t_idx < len(Tpeaks)-2:
+    while t_idx < len(Tpeaks) - 2:
 
         if t_idx == 0 and Tpeaks[t_idx] not in onpeaks:
             if intervalSD[0] == 1 and intervalSD[1] == 0:
@@ -209,7 +210,7 @@ def Smooth_sdt6(predict_sdt, threshold=0.4):
                 est_intervals.append([0.02 * Tpeaks[t_idx] + 0.01, 0.02 * Tpeaks[t_idx + 1] + 0.01])
             assert (Tpeaks[t_idx] < Tpeaks[t_idx + 1])
             t_idx += 2
-            if t_idx > len(Tpeaks)-2:
+            if t_idx > len(Tpeaks) - 2:
                 break
         elif Tpeaks[t_idx] in onpeaks and Tpeaks[t_idx + 1] in onpeaks:
             offset_inserted = find_first_bellow_thres(dSeq[Tpeaks[t_idx]:Tpeaks[t_idx + 1]]) + Tpeaks[t_idx]
@@ -242,12 +243,12 @@ def Smooth_sdt6(predict_sdt, threshold=0.4):
     onSeq_np = np.array(onSeq, dtype=float)
     offSeq_np = np.array(offSeq, dtype=float)
 
-
     # print(np.ndarray(shape=(len(est_intervals), 2), dtype=float,
     #                   buffer=np.array(est_intervals)),"\n", sSeq_np,"\n", dSeq_np,"\n", onSeq_np,"\n", offSeq_np,"\n", MissingT / (
     #                len(Tpeaks) + AddingT))
     # return np.ndarray(shape=(len(onset_times),), dtype=float, buffer=np.array(onset_times)), np.ndarray(shape=(len(offset_times),), dtype=float, buffer=np.array(offset_times)), sSeq_np, dSeq_np, tSeq_np
-    return np.array(est_intervals, dtype=float), sSeq_np, dSeq_np, onSeq_np, offSeq_np, MissingT / (len(Tpeaks) + AddingT)
+    return np.array(est_intervals, dtype=float), sSeq_np, dSeq_np, onSeq_np, offSeq_np, MissingT / (
+                len(Tpeaks) + AddingT)
 
 
 def get_Resnet():
@@ -278,6 +279,7 @@ def testset_evaluation(path, f_path, model=None, writer_in=None, timestep=None):
 
     sum_on_F1 = 0
     sum_off_F1 = 0
+    sum_note_F =0
 
     model.eval()
     count = 0
@@ -288,9 +290,9 @@ def testset_evaluation(path, f_path, model=None, writer_in=None, timestep=None):
         record = []
         features_full = np.load(features[index])
         label_path = str(pathlib.Path(labels[index]).parent / (
-                    pathlib.Path(features[index]).stem.split('.')[0] + ".notes.Corrected"))
+                pathlib.Path(features[index]).stem.split('.')[0] + ".notes.Corrected"))
         wav_path = str(pathlib.Path(labels[index]).parent / (
-                    pathlib.Path(features[index]).stem.split('.')[0] + ".wav"))
+                pathlib.Path(features[index]).stem.split('.')[0] + ".wav"))
         label_note = read_notefile(label_path)
         gt_label_sec_on, gt_label_sec_off = note2onoff_sec(label_note)
 
@@ -305,8 +307,7 @@ def testset_evaluation(path, f_path, model=None, writer_in=None, timestep=None):
         features_full = np.concatenate((zero_pad, features_full), axis=1)
         features_full = np.concatenate((features_full, zero_pad), axis=1)
         features_full = abs(features_full)
-        features_full = np.power(features_full/features_full.max(), hparam.gamma_mu) #normalize &gamma compression
-
+        features_full = np.power(features_full / features_full.max(), hparam.gamma_mu)  # normalize &gamma compression
 
         for test_step in range(features_full.shape[1] - 18):
             curr_clip = features_full[:, test_step:test_step + 19]
@@ -322,31 +323,42 @@ def testset_evaluation(path, f_path, model=None, writer_in=None, timestep=None):
 
         record = np.array(record)
         print(features[index])
-        est_intervals,_,_,_,_,_ = Smooth_sdt6(record)
+        est_intervals, _, _, _, _, _ = Smooth_sdt6(record)
         # est_labels = output2label(record, is_batch=False, is_nparray=True)
         # est_label_sec_on, est_label_sec_off = timestep2second(est_labels)
-        est_smooth_label_sec_on=[]
-        est_smooth_label_sec_off=[]
+        est_smooth_label_sec_on = []
+        est_smooth_label_sec_off = []
         for interval in est_intervals:
             est_smooth_label_sec_on.append(interval[0])
             est_smooth_label_sec_off.append(interval[1])
         est_smooth_label_sec_on = np.array(est_smooth_label_sec_on)
         est_smooth_label_sec_off = np.array(est_smooth_label_sec_off)
 
-        #===== pitch trace
+        # ===== pitch trace
+        # est_interval_array = onoffarray2interval(est_smooth_label_sec_on, est_smooth_label_sec_off)
+        est_pitch = interval2pitch_in_note(est_intervals, wav_path)
 
-        onoff2note()
+        gt_interval_array = onoffarray2interval(gt_label_sec_on, gt_label_sec_off)
+        gt_notes = gt_pitch_in_note(gt_interval_array, label_pitch)
 
         on_F, on_P, on_R = mir_eval.onset.f_measure(gt_label_sec_on, est_smooth_label_sec_on)
         off_F, off_P, off_R = mir_eval.onset.f_measure(gt_label_sec_off, est_smooth_label_sec_off)
+        notes_evaluation = mir_eval.transcription.evaluate(gt_interval_array, gt_notes, est_intervals, est_pitch)
+
+        # note_precision= notes_evaluation["Precision"]
+        # note_recall = notes_evaluation["Recall"]
+        note_F = notes_evaluation["F-measure"]
 
         sum_on_F1 += on_F
         sum_off_F1 += off_F
+        sum_note_F += note_F
         count += 1
-        print(f"smooth_on_F1: {on_F}, smooth_off_F1: {off_F}")
+        print(f"smooth_on_F1: {on_F}, smooth_off_F1: {off_F}, note_F: {note_F}")
 
     writer.add_scalar(f'scalar/onoff/on_F1', sum_on_F1 / count, timestep)
     writer.add_scalar(f'scalar/onoff/off_F1', sum_off_F1 / count, timestep)
+    writer.add_scalar(f'scalar/onoff/note_F', sum_note_F / count, timestep)
+
 
     #
     # writer.add_scalars(f"scalar\\onoff_F1", {'on_F1': sum_on_F1 / count, 'off_F1': sum_off_F1 / count}, timestep)
@@ -376,9 +388,9 @@ def whole_song_sampletest(path, f_path, model=None, writer_in=None, timestep=Non
 
         a = features[index]
         label_path = str(pathlib.Path(labels[index]).parent / (
-                    pathlib.Path(features[index]).stem.split('.')[0] + ".notes.Corrected"))
-        if index ==1:
-            features_full = np.load("data/train/Process_data/FEAT/01-D_AMairena.wav_FEAT.npy") # if trainset isok?
+                pathlib.Path(features[index]).stem.split('.')[0] + ".notes.Corrected"))
+        if index == 1:
+            features_full = np.load("data/train/Process_data/FEAT/01-D_AMairena.wav_FEAT.npy")  # if trainset isok?
             label_path = "data/train/TONAS/Deblas/01-D_AMairena.notes.Corrected"
 
         label_note = read_notefile(label_path)
@@ -393,7 +405,7 @@ def whole_song_sampletest(path, f_path, model=None, writer_in=None, timestep=Non
         features_full = np.concatenate((zero_pad, features_full), axis=1)
         features_full = np.concatenate((features_full, zero_pad), axis=1)
         features_full = abs(features_full)
-        features_full = np.power(features_full/features_full.max(), hparam.gamma_mu) #normalize &gamma compression
+        features_full = np.power(features_full / features_full.max(), hparam.gamma_mu)  # normalize &gamma compression
 
         for test_step in range(features_full.shape[1] - 18):
             curr_clip = features_full[:, test_step:test_step + 19]
@@ -586,34 +598,34 @@ def note2timestep(notes: List):
 
     return timestep, pitch
 
+
 def get_pitch_steps():
     pitch_steps = []
-    A4=440
-    midi_id=69
-    start =A4* np.power(1/2,midi_id/12)
-    step = np.power(2, 1/12)
+    A4 = 440
+    midi_id = 69
+    start = A4 * np.power(1 / 2, midi_id / 12)
+    step = np.power(2, 1 / 12)
     pitch_steps.append(start)
     for i in range(127):
-        start=start*step
+        start = start * step
         pitch_steps.append(start)
 
     return pitch_steps
 
 
-
 def pick_pitch(pitches, pitch_steps):
-    pitch_midiid=[]
+    pitch_midiid = []
 
     for pitch in pitches:
-        pitch_id =0
-        while(pitch>pitch_steps[pitch_id]):
-            pitch_id+=1
+        pitch_id = 0
+        while (pitch > pitch_steps[pitch_id]):
+            pitch_id += 1
 
-        if(abs(pitch_steps[pitch_id]-pitch)> abs(pitch_steps[pitch_id+1]-pitch) ):
-            pitch_id = pitch_id+1
+        if (abs(pitch_steps[pitch_id] - pitch) > abs(pitch_steps[pitch_id + 1] - pitch)):
+            pitch_id = pitch_id + 1
         pitch_midiid.append(pitch_id)
 
-    assert len(pitch_midiid)==len(pitches)
+    assert len(pitch_midiid) == len(pitches)
 
     mid_pitch = np.median(np.array(pitch_midiid))
     return mid_pitch
@@ -625,127 +637,132 @@ def sec2sample(sec_array, timeresolution=200):
     return sample_array
 
 
-def onoff2note(notes, wavfile, sr=44100):
-    pitch_steps =get_pitch_steps()
+def gt_pitch_in_note(intervals, pitch_label, time_resolution=0.02):
+    second_length = int(1 / time_resolution)
+    gt_pitch = []
 
-    pitches=[]
+    for interval in intervals:
+        pitch_interval = pitch_label[int(interval[0] * second_length): int(interval[1] * second_length)]
+        gt_pitch.append(np.median(np.array(pitch_interval)))
+
+    return np.array(gt_pitch)
+
+
+def interval2pitch_in_note(interval, wavfile, sr=44100, second_length=200):
+    pitch_steps = get_pitch_steps()
+
+    pitches = []
 
     pitch_midi_list = []
-    y, sr = librosa.load(wavfile, sr =sr,dtype="double")
+    y, sr = librosa.load(wavfile, sr=sr, dtype="double")
 
     _f0, t = pw.dio(y, sr)
 
-    assert notes[-1]*200 <= len(_f0)
-    for idx, note in enumerate(notes[:-1]) :
-        pitches=_f0[notes[idx]:notes[idx+1]]
-        length= len(pitches)
-        pitches = pitches[int(length/2):-int(length/4)]
+    assert interval[-1][1] * second_length <= len(_f0)
+    for idx, note in enumerate(interval):
+        pitches = _f0[int(note[0] * second_length):int(note[1] * second_length)]
+        length = len(pitches)
+        pitches = pitches[int(length / 2):-int(length / 4)]
 
         pitch_midi_list.append(pick_pitch(pitches, pitch_steps))
 
-    return pitch_midi_list
+    return np.array(pitch_midi_list)
 
-def onoff2note(onset_array, offset_array):
-    note_list=[]
+
+def onoffarray2interval(onset_array, offset_array):
+    note_list = []
     tmp_list = []
 
-    oncount=0
-    offcount=0
-    count=0
-    on_id=0
-    off_id=0
-    while(True):
-        print(len(offset_array)-1)
-        if off_id>len(offset_array)-1 and on_id>len(onset_array)-1:
+    oncount = 0
+    offcount = 0
+    count = 0
+    on_id = 0
+    off_id = 0
+    while (True):
+
+        if off_id > len(offset_array) - 1 and on_id > len(onset_array) - 1:
             break
-        elif off_id>len(offset_array)-1:
+        elif off_id > len(offset_array) - 1:
             tmp_list.append([onset_array[on_id], 1])
-            on_id+=1
+            on_id += 1
             count += 1
             continue
-        elif on_id>len(onset_array)-1:
+        elif on_id > len(onset_array) - 1:
             tmp_list.append([offset_array[off_id], 0])
-            off_id+=1
-            count+=1
+            off_id += 1
+            count += 1
             continue
 
-
-        if onset_array[on_id]>offset_array[off_id]:
+        if onset_array[on_id] > offset_array[off_id]:
             tmp_list.append([offset_array[off_id], 0])
-            off_id+=1
-            count+=1
+            off_id += 1
+            count += 1
         else:
             tmp_list.append([onset_array[on_id], 1])
-            on_id+=1
+            on_id += 1
             count += 1
 
-    for idx,  tmpitem in enumerate(tmp_list) : #remove all off before first on
-        if tmpitem[1]==0:
-            offcount+=1
+    for idx, tmpitem in enumerate(tmp_list):  # remove all off before first on
+        if tmpitem[1] == 0:
+            offcount += 1
         else:
             break
 
-    for idx,  tmpitem in enumerate(tmp_list) : #remove all on after last off
+    for idx, tmpitem in enumerate(tmp_list):  # remove all on after last off
 
-        if tmp_list[-(idx+1)][1]==1:
-            oncount+=1
+        if tmp_list[-(idx + 1)][1] == 1:
+            oncount += 1
         else:
             break
 
-    if oncount==0:
+    if oncount == 0:
         tmp_list = tmp_list[offcount:]
     else:
         tmp_list = tmp_list[offcount:-oncount]
 
-    adjust_idx =[]
+    adjust_idx = []
     for id in range(len(tmp_list[:-1])):
-        if id==0:
-            if tmp_list[id+1][1]==1:
-                tmp_list.insert(id+1, [tmp_list[id+1][0], 0])
-                adjust_idx.append([id+1, 0])
+        if id == 0:
+            if tmp_list[id + 1][1] == 1:
+                tmp_list.insert(id + 1, [tmp_list[id + 1][0], 0])
+                adjust_idx.append([id + 1, 0])
             continue
 
-        if tmp_list[id][1]== 1 and tmp_list[id+1][1]== 1:
+        if tmp_list[id][1] == 1 and tmp_list[id + 1][1] == 1:
             adjust_idx.append([id + 1, 0])
-        elif tmp_list[id][1]== 0 and tmp_list[id+1][1]== 0:
+        elif tmp_list[id][1] == 0 and tmp_list[id + 1][1] == 0:
             adjust_idx.append([id + 1, -1])
 
-    adj_count=0
+    adj_count = 0
     for item in adjust_idx:
-        if item[1]==0:
-            tmp_list.insert(item[0]+adj_count, [tmp_list[item[0]+adj_count][0],0])
-            adj_count+=1
-        elif item[1]==-1:
-            del tmp_list[item[0]+adj_count]
+        if item[1] == 0:
+            tmp_list.insert(item[0] + adj_count, [tmp_list[item[0] + adj_count][0], 0])
+            adj_count += 1
+        elif item[1] == -1:
+            del tmp_list[item[0] + adj_count]
             adj_count -= 1
 
-    count=0
-    assert len(tmp_list)%2==0
-    while(count<len(tmp_list)):
-        note_list.append([tmp_list[count][0], tmp_list[count+1][0]])
-        count+=2
+    count = 0
+    assert len(tmp_list) % 2 == 0
+    while (count < len(tmp_list)):
+        note_list.append([tmp_list[count][0], tmp_list[count + 1][0]])
+        count += 2
 
     return np.array(note_list)
-
-
-
-
-
 
 
 if __name__ == '__main__':
     path = "data/test/EvaluationFramework_ISMIR2014/DATASET"
     f_path = "data/test/Process_data/FEAT"
 
-    onset=[0.1,0.256,0.279,0.336,0.469,0.53]
-    offset=[0.01,0.23,0.266,0.267,0.39,0.4]
-    onoff2note(onset, offset)
+    onset = [0.1, 0.256, 0.279, 0.336, 0.469, 0.53]
+    offset = [0.01, 0.23, 0.266, 0.267, 0.39, 0.4]
 
-    # model= get_Resnet().to(device)
-    # model.load_state_dict(torch.load("checkpoint/5280_augset_1028.pth"))
-    # print("load OK")
+    model = get_Resnet().to(device)
+    model.load_state_dict(torch.load("checkpoint/5280_augset_1028.pth"))
+    print("load OK")
 
-    # testset_evaluation(path, f_path, model=model)
+    testset_evaluation(path, f_path, model=model)
 
     # testsample_path = hparam.testsample_path
     # testsample_f_path = hparam.testsample_f_path
