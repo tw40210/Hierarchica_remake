@@ -111,7 +111,7 @@ def find_first_bellow_thres(aSeq):
     return first_bellow_frame
 
 
-def Smooth_sdt6(predict_sdt, threshold=0.4):
+def Smooth_sdt6(predict_sdt, threshold=0.20):
     # predict shape: (time step, 3)
     Filter = np.ndarray(shape=(5,), dtype=float, buffer=np.array([0.25, 0.5, 1.0, 0.5, 0.25]))
     # Filter = np.ndarray(shape=(5,), dtype=float, buffer=np.array([1.0, 1.0, 1.0, 1.0, 1.0]))
@@ -262,11 +262,11 @@ def get_Resnet():
     return model
 
 
-def testset_evaluation(path, f_path, model=None, writer_in=None, timestep=None):
+def testset_evaluation(path, f_path, model=None, writer_in=None, timestep=None, is_plot=True):
     if not model:
         model = get_Resnet()
     if not writer_in:
-        writer = SummaryWriter()
+        writer = SummaryWriter(comment="test_seperated1122")
     else:
         writer = writer_in
 
@@ -285,6 +285,9 @@ def testset_evaluation(path, f_path, model=None, writer_in=None, timestep=None):
     count = 0
     print("testing on testset for on/off_F1\n")
     for index in range(len(features)):
+        # if count<3:
+        #     count += 1
+        #     continue
 
 
         # if count > 4:  # shorten test time by sampling
@@ -349,7 +352,9 @@ def testset_evaluation(path, f_path, model=None, writer_in=None, timestep=None):
         # note_precision= notes_evaluation["Precision"]
         # note_recall = notes_evaluation["Recall"]
         note_F = notes_evaluation["F-measure"]
-        plot_note(gt_interval_array, gt_notes, est_intervals, est_pitch)
+
+        if is_plot:
+            plot_note(gt_interval_array, gt_notes, est_intervals, est_pitch)
 
         sum_on_F1 += on_F
         sum_off_F1 += off_F
@@ -668,10 +673,28 @@ def interval2pitch_in_note(interval, wavfile, sr=44100, second_length=200):
         pitches = pitches[int(length / 2):-int(length / 4)]
         pitches = pitches[pitches!=0]
         pitch_count=1.2
-        while(len(pitches)<1):
-            pitches = pitches[int(length / (2/pitch_count)):-int(length / (4*pitch_count))]
+        while(pitches.size <1):
+            pitches = _f0[int(note[0] * second_length):int(note[1] * second_length)]
+            pitches = pitches[int(length / (2*pitch_count)):-int(length / (4*pitch_count))]
             pitches = pitches[pitches != 0]
             pitch_count+=0.1
+            if(pitch_count>2): #if no pitch take nearest
+                note_idx1 = int(note[0] * second_length)
+                note_idx2 = int(note[1] * second_length)
+
+                while(note_idx2<_f0.size-1):
+                    if _f0[note_idx2]>1:
+                        pitches = _f0[note_idx2:note_idx2+1]
+                        break
+                    else:
+                        note_idx2+=1
+                while(note_idx1 > 0 and pitches.size <1):
+                    if _f0[note_idx1]>1:
+                        pitches = _f0[note_idx1:note_idx1+1]
+                        break
+                    else:
+                        note_idx1-=1
+
 
         pitch_midi_list.append(pick_pitch(pitches, pitch_steps))
 
@@ -760,6 +783,8 @@ def onoffarray2interval(onset_array, offset_array):
     return np.array(note_list)
 
 def plot_note(gt_interval_array, gt_notes, est_intervals, est_pitch):
+    gt_notes = np.round(gt_notes, 0)
+
     new_gt = []
     for idx, interval in enumerate(gt_interval_array) :
         new_gt.append([interval[0],gt_notes[idx] ])
@@ -795,10 +820,10 @@ if __name__ == '__main__':
     offset = [0.01, 0.23, 0.266, 0.267, 0.39, 0.4]
 
     model = get_Resnet().to(device)
-    model.load_state_dict(torch.load("checkpoint/5280_augset_1028.pth"))
+    model.load_state_dict(torch.load("standard_checkpoint/960_1030perform077.pth"))
     print("load OK")
 
-    testset_evaluation(path, f_path, model=model)
+    testset_evaluation(path, f_path, model=model, is_plot=False)
 
     # testsample_path = hparam.testsample_path
     # testsample_f_path = hparam.testsample_f_path
