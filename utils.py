@@ -285,6 +285,8 @@ def testset_evaluation(path, f_path, model=None, writer_in=None, timestep=None):
     count = 0
     print("testing on testset for on/off_F1\n")
     for index in range(len(features)):
+
+
         # if count > 4:  # shorten test time by sampling
         #     break
         record = []
@@ -335,7 +337,6 @@ def testset_evaluation(path, f_path, model=None, writer_in=None, timestep=None):
         est_smooth_label_sec_off = np.array(est_smooth_label_sec_off)
 
         # ===== pitch trace
-        # est_interval_array = onoffarray2interval(est_smooth_label_sec_on, est_smooth_label_sec_off)
         est_pitch = interval2pitch_in_note(est_intervals, wav_path)
 
         gt_interval_array = onoffarray2interval(gt_label_sec_on, gt_label_sec_off)
@@ -348,6 +349,7 @@ def testset_evaluation(path, f_path, model=None, writer_in=None, timestep=None):
         # note_precision= notes_evaluation["Precision"]
         # note_recall = notes_evaluation["Recall"]
         note_F = notes_evaluation["F-measure"]
+        plot_note(gt_interval_array, gt_notes, est_intervals, est_pitch)
 
         sum_on_F1 += on_F
         sum_off_F1 += off_F
@@ -623,9 +625,10 @@ def pick_pitch(pitches, pitch_steps):
 
         if (abs(pitch_steps[pitch_id] - pitch) > abs(pitch_steps[pitch_id + 1] - pitch)):
             pitch_id = pitch_id + 1
-        pitch_midiid.append(pitch_id)
 
-    assert len(pitch_midiid) == len(pitches)
+        pitch_midiid.append(pitch_id)
+    #
+    # assert len(pitch_midiid) == len(pitches)
 
     mid_pitch = np.median(np.array(pitch_midiid))
     return mid_pitch
@@ -663,6 +666,12 @@ def interval2pitch_in_note(interval, wavfile, sr=44100, second_length=200):
         pitches = _f0[int(note[0] * second_length):int(note[1] * second_length)]
         length = len(pitches)
         pitches = pitches[int(length / 2):-int(length / 4)]
+        pitches = pitches[pitches!=0]
+        pitch_count=1.2
+        while(len(pitches)<1):
+            pitches = pitches[int(length / (2/pitch_count)):-int(length / (4*pitch_count))]
+            pitches = pitches[pitches != 0]
+            pitch_count+=0.1
 
         pitch_midi_list.append(pick_pitch(pitches, pitch_steps))
 
@@ -749,6 +758,33 @@ def onoffarray2interval(onset_array, offset_array):
         count += 2
 
     return np.array(note_list)
+
+def plot_note(gt_interval_array, gt_notes, est_intervals, est_pitch):
+    new_gt = []
+    for idx, interval in enumerate(gt_interval_array) :
+        new_gt.append([interval[0],gt_notes[idx] ])
+        new_gt.append([interval[1], gt_notes[idx]])
+
+    new_est=[]
+    for idx, interval in enumerate(est_intervals) :
+        new_est.append([interval[0],est_pitch[idx] ])
+        new_est.append([interval[1],est_pitch[idx] ])
+
+    new_gt = np.array(new_gt)
+    new_est = np.array(new_est)
+
+    plt.figure(figsize=(6, 4.5), dpi=100)  # 設定圖片尺寸
+    plt.xlabel('r (m)', fontsize=16)  # 設定坐標軸標籤
+    plt.xticks(fontsize=12)  # 設定坐標軸數字格式
+    plt.yticks(fontsize=12)
+
+    plt.plot(new_gt[:,0], new_gt[:,1], color='red', linewidth=1, label='GT')
+    plt.plot(new_est[:,0], new_est[:,1], color='blue', linewidth=1, label='EST')
+    # plt.legend(handles=[line1, line2], loc='upper right')
+    plt.show()
+    return
+
+
 
 
 if __name__ == '__main__':

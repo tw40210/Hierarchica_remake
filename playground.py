@@ -11,6 +11,16 @@ import pathlib
 # import pyworld as pw
 import librosa
 from tqdm import tqdm
+import  mir_eval
+
+
+ref_intervals, ref_pitches = mir_eval.io.load_valued_intervals('reference.txt')
+est_intervals, est_pitches = mir_eval.io.load_valued_intervals('estimate.txt')
+
+mir_eval.transcription.evaluate
+print(est_intervals)
+
+#==============
 #
 #
 # dir = "data/train_extension_Process_data/FEAT"
