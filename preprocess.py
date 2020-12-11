@@ -12,10 +12,10 @@ import scipy.fftpack
 import librosa
 import argparse
 import hparam
-from keras.models import load_model
 import matplotlib.pyplot as plt
 import os
 from tqdm import tqdm
+import numba as nb
 
 
 def STFT(x, fr, fs, Hop, h):
@@ -115,9 +115,11 @@ def CFP_filterbank(x, fr, fs, Hop, h, fc, tc, g, NumPerOctave):
     NumofLayer = np.size(g)
 
     [tfr, f, t, N] = STFT(x, fr, fs, Hop, h)
+
     tfr = np.power(abs(tfr), g[0])
     tfr0 = tfr  # original STFT
     ceps = np.zeros(tfr.shape)
+
 
     if NumofLayer >= 2:
         for gc in range(1, NumofLayer):
@@ -149,8 +151,8 @@ def CFP_filterbank(x, fr, fs, Hop, h, fc, tc, g, NumPerOctave):
     return tfrL0, tfrLF, tfrLQ, f, q, t, central_frequencies
 
 
-def full_feature_extraction(filename):
-    x, fs = librosa.load(filename, sr = hparam.sr)
+def full_feature_extraction(x):
+
     # if x.shape[1] > 1:
     #     x = np.mean(x, axis=1)
     # x = scipy.signal.resample_poly(x, 16000, fs)
@@ -271,13 +273,13 @@ def patch_extraction(Z, patch_size, th):
     #    print(mapping.shape)
     return data, mapping, half_ps, N, Z
 
-
-def patch_prediction(modelname, data, patch_size, model=None):
-    data = data.reshape(data.shape[0], patch_size, patch_size, 1)
-    if not model:
-        model = load_model(modelname)
-    pred = model.predict(data)
-    return pred
+#
+# def patch_prediction(modelname, data, patch_size, model=None):
+#     data = data.reshape(data.shape[0], patch_size, patch_size, 1)
+#     if not model:
+#         model = load_model(modelname)
+#     pred = model.predict(data)
+#     return pred
 
 
 def contour_prediction(mapping, pred, N, half_ps, Z, t, CenFreq, max_method):
@@ -376,45 +378,43 @@ def melody_extraction(infile, outfile, model=None):
     # print('Feature extraction of ' + infile)
     print('Feature Extraction: Extracting Pitch Contour ...')
     Z, t, CenFreq, tfrL0, tfrLF, tfrLQ = feature_extraction(infile)
-    if max_method == 'raw':
-        result = contour_pred_from_raw(Z, t, CenFreq)
-        postgram = Z
-    else:
-        print('Patch extraction from %d frames' % (Z.shape[1]))
-        data, mapping, half_ps, N, Z = patch_extraction(Z, patch_size, th)
-        print('Predictions from %d patches' % (data.shape[0]))
-        pred = patch_prediction(modelname, data, patch_size, model)
-        result = contour_prediction(mapping, pred, N, half_ps, Z, t, \
-                                    CenFreq, max_method)
-        postgram = show_prediction(mapping, pred, N, half_ps, Z, t)
-    # print(result.shape)
-    np.save(outfile, result)
-    np.savetxt(f'{outfile[:-3]}txt', result)
-    p = np.load(outfile)
-    return result, postgram, Z, tfrL0, tfrLF, tfrLQ, t, CenFreq
+    # if max_method == 'raw':
+    #     result = contour_pred_from_raw(Z, t, CenFreq)
+    #     postgram = Z
+    # else:
+    #     print('Patch extraction from %d frames' % (Z.shape[1]))
+    #     data, mapping, half_ps, N, Z = patch_extraction(Z, patch_size, th)
+    #     print('Predictions from %d patches' % (data.shape[0]))
+    #     pred = patch_prediction(modelname, data, patch_size, model)
+    #     result = contour_prediction(mapping, pred, N, half_ps, Z, t, \
+    #                                 CenFreq, max_method)
+    #     postgram = show_prediction(mapping, pred, N, half_ps, Z, t)
+    # # print(result.shape)
+    # np.save(outfile, result)
+    # np.savetxt(f'{outfile[:-3]}txt', result)
+    # p = np.load(outfile)
+    return  Z, tfrL0, tfrLF, tfrLQ, t, CenFreq
 
 
 # def output_feature_extraction(infile, outfile_z, outfile_t, outfile_f, outfile_s):
-def output_feature_extraction(infile, outfile_feat, outfile_z, outfile_cf):
+def output_feature_extraction(x, outfile_feat, outfile_z, outfile_cf):
     print('Feature Extraction: Extracting Spectral Difference and CFP ...')
     # Z, t, f, CenFreq, tfrL0, tfrLF, tfrLQ = full_feature_extraction(infile)
-    SN_SIN_ZN, Z1, CenFreq1 = full_feature_extraction(infile)
-    # print(CenFreq.shape)
-    # print(CenFreq)
-    # input()
-    # print(Z.shape)
+    SN_SIN_ZN, Z1, CenFreq1 = full_feature_extraction(x)
+
     np.save(outfile_feat, SN_SIN_ZN)
     np.save(outfile_z, Z1)
     np.save(outfile_cf, CenFreq1)
 
-    a = np.load(outfile_feat)
-    b = np.load(outfile_z)
-    c = np.load(outfile_cf)
-
-    # np.savetxt(outfile_t, t)
-    # np.savetxt(outfile_f, f)
-    # np.savetxt(outfile_s, tfrL0)
     return SN_SIN_ZN, Z1, CenFreq1
+
+def output_feature_extraction_nosave(x):
+    print('Feature Extraction: Extracting Spectral Difference and CFP ...')
+    # Z, t, f, CenFreq, tfrL0, tfrLF, tfrLQ = full_feature_extraction(infile)
+    SN_SIN_ZN, Z1, CenFreq1 = full_feature_extraction(x)
+
+    return SN_SIN_ZN, Z1, CenFreq1
+
 
 
 if __name__ == "__main__":
@@ -441,8 +441,8 @@ if __name__ == "__main__":
     # args = parser.parse_args()
     # melody_extraction(args.InFile, args.OutFile_P)
     # output_feature_extraction(args.InFile, args.OutFile_FEAT, args.OutFile_Z, args.OutFile_CF)
-    wav_dir = "data/train/train_extension"
-    tar_dir = "data/train/train_extension_Process_data"
+    wav_dir = "data/train/TONAS/Deblas"
+    tar_dir = "data/train/Process_data_16K"
     os.makedirs(tar_dir, exist_ok=True)
 
     for wavfile in tqdm(os.listdir(wav_dir)) :
@@ -457,8 +457,10 @@ if __name__ == "__main__":
             os.makedirs(os.path.join(tar_dir, "P"), exist_ok=True)
             OutFile_P = os.path.join(tar_dir, "P", f"{wavfile[:-4]}_P.npy")
 
-            melody_extraction(InFile, OutFile_P)
-            output_feature_extraction(InFile, OutFile_FEAT, OutFile_Z, OutFile_CF)
+            # melody_extraction(InFile, OutFile_P)
+
+            x, fs = librosa.load(InFile, sr = hparam.sr)
+            output_feature_extraction(x, OutFile_FEAT, OutFile_Z, OutFile_CF)
             print(InFile)
 
 
