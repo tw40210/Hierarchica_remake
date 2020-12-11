@@ -8,6 +8,8 @@ import matplotlib
 import numpy as np
 from preprocess import output_feature_extraction_nosave
 import time
+from utils import signal_sampletest_, get_Resnet
+import torch
 
 # def callbackln(in_data, frame_count, time_info, status):
 #     in_data_int = np.array(struct.unpack(str(2 * CHUNK)+'b', in_data), dtype='b')
@@ -46,14 +48,17 @@ count=0
 
 
 
-fig, ax = plt.subplots()
-x = np.arange(0,2*CHUNK,2)
-line, = ax.plot(x,np.random.rand(CHUNK))
-ax.set_ylim(-128,128)
-ax.set_xlim(0,CHUNK)
-fig.show()
+# fig, ax = plt.subplots()
+# x = np.arange(0,2*CHUNK,2)
+# line, = ax.plot(x,np.random.rand(CHUNK))
+# ax.set_ylim(-128,128)
+# ax.set_xlim(0,CHUNK)
+# fig.show()
 
-
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+model = get_Resnet().to(device)
+model.load_state_dict(torch.load("checkpoint/5280_augset_1028.pth"))
+print("load OK")
 
 while True:
 
@@ -62,8 +67,10 @@ while True:
     start = time.time()
     data_int = np.array(struct.unpack(str(2 * CHUNK)+'B', data), dtype='b')[::2] + 0
     data_float = np.array(data_int, dtype=float)/128
-    output_feature_extraction_nosave(data_float)
+    SN_SIN_ZN, Z1, CenFreq1 = output_feature_extraction_nosave(data_float)
+    record = signal_sampletest_(SN_SIN_ZN, model=model)
     print(count)
+    print(record)
     end = time.time()
     print(end-start)
 

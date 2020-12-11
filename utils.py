@@ -365,6 +365,54 @@ def testset_evaluation(path, f_path, model=None, writer_in=None, timestep=None):
     #
     # writer.add_scalars(f"scalar\\onoff_F1", {'on_F1': sum_on_F1 / count, 'off_F1': sum_off_F1 / count}, timestep)
 
+def signal_sampletest_(input_x, model=None, writer_in=None, timestep=None):
+    if not model:
+        model = get_Resnet()
+    if not writer_in:
+        writer = SummaryWriter()
+    else:
+        writer = writer_in
+
+    if not timestep:
+        timestep = 0
+
+    model.eval()
+    count = 0
+
+    record = []
+
+    features_full = input_x
+
+    # cut muted tail from feature
+    # features_full = features_full[:, :label_note.shape[0]]
+    # pad 9 zero steps in both head and tail
+    zero_pad = np.zeros((features_full.shape[0], 9))
+    features_full = np.concatenate((zero_pad, features_full), axis=1)
+    features_full = np.concatenate((features_full, zero_pad), axis=1)
+    features_full = abs(features_full)
+    features_full = np.power(features_full / features_full.max(), hparam.gamma_mu)  # normalize &gamma compression
+
+    for test_step in range(features_full.shape[1] - 18):
+        curr_clip = features_full[:, test_step:test_step + 19]
+        curr_clip = torch.from_numpy(curr_clip)
+        curr_clip = curr_clip.view(9, 174, -1).float()
+        curr_clip = curr_clip.unsqueeze(0)
+        curr_clip = curr_clip.to(device)
+        model = model.to(device)
+        out_label = model(curr_clip)
+        out_label = out_label.squeeze(0).squeeze(0).cpu().detach().numpy()
+
+        record.append(out_label)
+        # if len(record) > hparam.whole_song_max_len:
+        #     print(f"{label_path} OK")
+        #     break
+        count += 1
+
+    record = np.array(record)
+
+    return record
+
+
 
 def whole_song_sampletest(path, f_path, model=None, writer_in=None, timestep=None):
     if not model:
@@ -798,9 +846,9 @@ if __name__ == '__main__':
     model.load_state_dict(torch.load("checkpoint/5280_augset_1028.pth"))
     print("load OK")
 
-    testset_evaluation(path, f_path, model=model)
+    # testset_evaluation(path, f_path, model=model)
 
-    # testsample_path = hparam.testsample_path
-    # testsample_f_path = hparam.testsample_f_path
+    testsample_path = hparam.testsample_path
+    testsample_f_path = hparam.testsample_f_path
     # testset_evaluation(testsample_path, testsample_f_path, model=model)
-    # whole_song_sampletest(testsample_path, testsample_f_path, model=model)
+    whole_song_sampletest(testsample_path, testsample_f_path, model=model)
