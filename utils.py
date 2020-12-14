@@ -251,10 +251,10 @@ def Smooth_sdt6(predict_sdt, threshold=0.20):
                 len(Tpeaks) + AddingT)
 
 
-def get_Resnet():
+def get_Resnet(channel=9):
     model = ResNet(BasicBlock, [2, 2, 2, 2])
     num_fout = model.conv1.out_channels
-    model.conv1 = nn.Conv2d(9, num_fout, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3),
+    model.conv1 = nn.Conv2d(channel, num_fout, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3),
                             bias=False)
     model.fc = nn.Linear(model.fc.in_features, 6)
     model.avgpool = nn.AvgPool2d(kernel_size=(6, 1), stride=1, padding=0)
@@ -262,9 +262,91 @@ def get_Resnet():
     return model
 
 
-def testset_evaluation(path, f_path, model=None, writer_in=None, timestep=None, is_plot=True):
+def testset_evaluation_train(path, f_path, model=None, writer_in=None, timestep=None):
     if not model:
         model = get_Resnet()
+    if not writer_in:
+        writer = SummaryWriter()
+    else:
+        writer = writer_in
+
+    if not timestep:
+        timestep = 0
+
+    wav_files = [os.path.join(path, file) for file in os.listdir(path) if '.wav' in file]
+    labels = [os.path.join(path, label) for label in os.listdir(path) if '.notes.' in label]
+    features = [os.path.join(f_path, features) for features in os.listdir(f_path) if '_FEAT' in features]
+
+    sum_on_F1 = 0
+    sum_off_F1 = 0
+
+    model.eval()
+    count = 0
+    print("testing on testset for on/off_F1\n")
+    for index in range(len(features)):
+        if count > 4:  # shorten test time by sampling
+            break
+        record = []
+        features_full = np.load(features[index])
+        label_path = str(pathlib.Path(labels[index]).parent / (
+                    pathlib.Path(features[index]).stem.split('.')[0] + ".notes.Corrected"))
+        label_note = read_notefile(label_path)
+        gt_label_sec_on, gt_label_sec_off = note2onoff_sec(label_note)
+
+        label_note, label_pitch = note2timestep(label_note)
+        label_note = np.array(label_note)
+        label_pitch = np.array(label_pitch)
+
+        # cut muted tail from feature
+        features_full = features_full[:, :label_note.shape[0]]
+        # pad 9 zero steps in both head and tail
+        zero_pad = np.zeros((features_full.shape[0], 9))
+        features_full = np.concatenate((zero_pad, features_full), axis=1)
+        features_full = np.concatenate((features_full, zero_pad), axis=1)
+        features_full = abs(features_full)
+        features_full = np.power(features_full/features_full.max(), hparam.gamma_mu) #normalize &gamma compression
+
+
+        for test_step in range(features_full.shape[1] - 18):
+            curr_clip = features_full[:, test_step:test_step + 19]
+            curr_clip = torch.from_numpy(curr_clip)
+            curr_clip = curr_clip.view(9, 174, -1).float()
+            curr_clip = curr_clip.unsqueeze(0)
+            curr_clip = curr_clip.to(device)
+            model = model.to(device)
+            out_label = model(curr_clip)
+            out_label = out_label.squeeze(0).squeeze(0).cpu().detach().numpy()
+
+            record.append(out_label)
+
+        record = np.array(record)
+        print(features[index])
+        est_intervals,_,_,_,_,_ = Smooth_sdt6(record)
+        # est_labels = output2label(record, is_batch=False, is_nparray=True)
+        # est_label_sec_on, est_label_sec_off = timestep2second(est_labels)
+        est_smooth_label_sec_on=[]
+        est_smooth_label_sec_off=[]
+        for interval in est_intervals:
+            est_smooth_label_sec_on.append(interval[0])
+            est_smooth_label_sec_off.append(interval[1])
+        est_smooth_label_sec_on = np.array(est_smooth_label_sec_on)
+        est_smooth_label_sec_off = np.array(est_smooth_label_sec_off)
+
+        on_F, on_P, on_R = mir_eval.onset.f_measure(gt_label_sec_on, est_smooth_label_sec_on)
+        off_F, off_P, off_R = mir_eval.onset.f_measure(gt_label_sec_off, est_smooth_label_sec_off)
+
+        sum_on_F1 += on_F
+        sum_off_F1 += off_F
+        count += 1
+        print(f"smooth_on_F1: {on_F}, smooth_off_F1: {off_F}")
+
+
+    writer.add_scalars(f"scalar\\onoff_F1", {'on_F1': sum_on_F1 / count, 'off_F1': sum_off_F1 / count}, timestep)
+
+
+def testset_evaluation(path, f_path, model=None, writer_in=None, timestep=None, is_plot=False, channel=9):
+    if not model:
+        model = get_Resnet(channel=channel)
     if not writer_in:
         writer = SummaryWriter(comment="test_seperated1122")
     else:
@@ -317,7 +399,7 @@ def testset_evaluation(path, f_path, model=None, writer_in=None, timestep=None, 
         for test_step in range(features_full.shape[1] - 18):
             curr_clip = features_full[:, test_step:test_step + 19]
             curr_clip = torch.from_numpy(curr_clip)
-            curr_clip = curr_clip.view(9, 174, -1).float()
+            curr_clip = curr_clip.view(channel, 174, -1).float()
             curr_clip = curr_clip.unsqueeze(0)
             curr_clip = curr_clip.to(device)
             model = model.to(device)
@@ -419,9 +501,9 @@ def signal_sampletest_(input_x, model=None, writer_in=None, timestep=None):
 
 
 
-def whole_song_sampletest(path, f_path, model=None, writer_in=None, timestep=None):
+def whole_song_sampletest(path, f_path, model=None, writer_in=None, timestep=None, channel=9):
     if not model:
-        model = get_Resnet()
+        model = get_Resnet(channel=channel)
     if not writer_in:
         writer = SummaryWriter()
     else:

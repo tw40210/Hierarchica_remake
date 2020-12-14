@@ -13,24 +13,25 @@ import librosa
 from tqdm import tqdm
 import  mir_eval
 
+#
+# ref_intervals, ref_pitches = mir_eval.io.load_valued_intervals('reference.txt')
+# est_intervals, est_pitches = mir_eval.io.load_valued_intervals('estimate.txt')
+#
+# mir_eval.transcription.evaluate
+# print(est_intervals)
 
-ref_intervals, ref_pitches = mir_eval.io.load_valued_intervals('reference.txt')
-est_intervals, est_pitches = mir_eval.io.load_valued_intervals('estimate.txt')
-
-mir_eval.transcription.evaluate
-print(est_intervals)
 
 #==============
 #
 #
-# dir = "data/train_extension_Process_data/FEAT"
+# dir = "data/train_extension_Process522/FEAT"
 # for file in os.listdir(dir):
 #     os.rename(os.path.join(dir, file), os.path.join(dir, f"{file[:-13]}{file[-9:]}"))
 
 
 
 
-#==================pitch augmentation
+# ==================pitch augmentation
 # def write_label(src_path, tar_path, action, scale):
 #     with open(src_path, 'r') as src_txt:
 #
@@ -60,7 +61,7 @@ print(est_intervals)
 #     print(tar_path)
 #
 #
-# src_path = "data\\train/TONAS/Deblas"
+# src_path = "data/train/TONAS/Deblas"
 # tar_path = "data/train/train_extension"
 # fs= 44100
 # actions = ["dw", "up"]
@@ -89,7 +90,7 @@ print(est_intervals)
 #                     librosa.output.write_wav(tarwavfile, new_y, sr=fs)
 #
 #                     write_label(labelfile, tarlabelfile, action, scale)
-
+#
 
 
 

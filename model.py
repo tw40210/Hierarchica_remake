@@ -252,15 +252,16 @@ if __name__ == '__main__':
     # print(total)
 
 
-    x = torch.rand(1,3,522,19)
+    x = torch.rand(1,1,522,19)
     model = ResNet(BasicBlock, [2, 2, 2, 2])
     num_fout = model.conv1.out_channels
-    model.conv1 = nn.Conv2d(3, num_fout, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3),
+    model.conv1 = nn.Conv2d(1, num_fout, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3),
                                bias=False)
     model.fc = nn.Linear(model.fc.in_features, 6)
 
     model.avgpool = nn.AvgPool2d(kernel_size=(17, 1), stride=1, padding=0)
 
+    print(model)
     out = model(x)
     print(out.shape)
 

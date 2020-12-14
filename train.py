@@ -1,6 +1,6 @@
 import random
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 import numpy as np
 import torch
@@ -12,10 +12,10 @@ from tqdm import tqdm
 import hparam
 from dataset import mydataset, Random_volume
 from model import get_BCE_loss
-from utils import get_accuracy, whole_song_sampletest, Logger, get_Resnet, testset_evaluation
+from utils import get_accuracy, whole_song_sampletest, Logger, get_Resnet, testset_evaluation, testset_evaluation_train
 
 
-tensor_comment = "thre04_pos12_batch32_testall"
+tensor_comment = "baseline522_version"
 SEED=0
 random.seed(SEED)
 np.random.seed(SEED)
@@ -27,12 +27,10 @@ torch.cuda.manual_seed(SEED)
 def train():
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    train_path = ['data/train/TONAS/Deblas',
-                  "data/train_extension"]
-    train_f_path = ['data/train/Process_data/FEAT',
-                    "data/train_extension_Process_data/FEAT"]
+    train_path = ['data/train_extension']
+    train_f_path = ['data/train_extension_Process522/FEAT']
     test_path = ['data/test/EvaluationFramework_ISMIR2014/DATASET']
-    test_f_path = ['data/test/Process_data/FEAT']
+    test_f_path = ['data/test/Process_data522/FEAT']
 
     if torch.cuda.is_available():
         print("cuda")
@@ -41,9 +39,9 @@ def train():
 
     augmentation = [Random_volume(rate=0.5, min_range=0.5, max_range=1.5)]
 
-    train_dataloader = DataLoader(mydataset(train_path, train_f_path, amount=10000, augmentation= augmentation), batch_size=hparam.batch_size, shuffle=True,
+    train_dataloader = DataLoader(mydataset(train_path, train_f_path, amount=10000, augmentation= augmentation, channel=hparam.FEAT_channel), batch_size=hparam.batch_size, shuffle=True,
                             num_workers=hparam.num_workers)
-    test_dataloader = DataLoader(mydataset(test_path, test_f_path), batch_size=hparam.batch_size, shuffle=True,
+    test_dataloader = DataLoader(mydataset(test_path, test_f_path, channel=hparam.FEAT_channel), batch_size=hparam.batch_size, shuffle=True,
                             num_workers=hparam.num_workers)
 
 
@@ -53,9 +51,9 @@ def train():
     #                            bias=False)
     # model.fc = nn.Linear(model.fc.in_features, 6)
     # model.avgpool = nn.AvgPool2d(kernel_size=(17, 1), stride=1, padding=0)
-    model= get_Resnet().to(device)
-    model.load_state_dict(torch.load("standard_checkpoint/5280_augset_1028.pth"))
-    print("load OK")
+    model= get_Resnet(channel=hparam.FEAT_channel).to(device)
+    # model.load_state_dict(torch.load("standard_checkpoint/5280_augset_1028.pth"))
+    # print("load OK")
 
     optimizer = optim.RMSprop(model.parameters(), lr=hparam.lr, weight_decay=0, momentum=0.9)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=10)
@@ -118,7 +116,7 @@ def train():
                 if step_count % hparam.step_to_save == 0:
                     testsample_path = hparam.testsample_path
                     testsample_f_path = hparam.testsample_f_path
-                    whole_song_sampletest(testsample_path, testsample_f_path, model=model, writer_in=writer, timestep=step_count)
+                    # whole_song_sampletest(testsample_path, testsample_f_path, model=model, writer_in=writer, timestep=step_count,channel =hparam.FEAT_channel)
                     torch.save(model.state_dict(), f"checkpoint/{step_count}.pth")
                     logger.save_modelbackup(model, new_rundir)
                     print(f'saved in {step_count}\n')
@@ -126,7 +124,7 @@ def train():
                     test_eval_path = test_path[0]
                     test_eval_f_path = test_f_path[0]
 
-                    testset_evaluation(test_eval_path, test_eval_f_path, model=model, writer_in=writer, timestep=step_count)
+                    testset_evaluation(test_eval_path, test_eval_f_path, model=model, writer_in=writer, timestep=step_count, channel=hparam.FEAT_channel)
 
 
 

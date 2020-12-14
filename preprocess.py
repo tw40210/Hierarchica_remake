@@ -170,27 +170,27 @@ def full_feature_extraction(x):
     NumPerOctave = 48  # Number of bins per octave
 
     tfrL01, tfrLF1, tfrLQ1, f1, q1, t1, CenFreq1 = CFP_filterbank(x, fr, fs, Hop, h1, fc, tc, g, NumPerOctave)
-    tfrL02, tfrLF2, tfrLQ2, f2, q2, t2, CenFreq2 = CFP_filterbank(x, fr, fs, Hop, h2, fc, tc, g, NumPerOctave)
-    tfrL03, tfrLF3, tfrLQ3, f3, q3, t3, CenFreq3 = CFP_filterbank(x, fr, fs, Hop, h3, fc, tc, g, NumPerOctave)
+    # tfrL02, tfrLF2, tfrLQ2, f2, q2, t2, CenFreq2 = CFP_filterbank(x, fr, fs, Hop, h2, fc, tc, g, NumPerOctave)
+    # tfrL03, tfrLF3, tfrLQ3, f3, q3, t3, CenFreq3 = CFP_filterbank(x, fr, fs, Hop, h3, fc, tc, g, NumPerOctave)
     Z1 = tfrLF1 * tfrLQ1
     ZN1 = (Z1 - np.mean(Z1)) / np.std(Z1)
-    Z2 = tfrLF2 * tfrLQ2
-    ZN2 = (Z2 - np.mean(Z2)) / np.std(Z2)
-    Z3 = tfrLF3 * tfrLQ3
-    ZN3 = (Z3 - np.mean(Z3)) / np.std(Z3)
+    # Z2 = tfrLF2 * tfrLQ2
+    # ZN2 = (Z2 - np.mean(Z2)) / np.std(Z2)
+    # Z3 = tfrLF3 * tfrLQ3
+    # ZN3 = (Z3 - np.mean(Z3)) / np.std(Z3)
     SN1 = gen_spectral_flux(tfrL01, invert=False, norm=True)
-    SN2 = gen_spectral_flux(tfrL02, invert=False, norm=True)
-    SN3 = gen_spectral_flux(tfrL03, invert=False, norm=True)
+    # SN2 = gen_spectral_flux(tfrL02, invert=False, norm=True)
+    # SN3 = gen_spectral_flux(tfrL03, invert=False, norm=True)
     SIN1 = gen_spectral_flux(tfrL01, invert=True, norm=True)
-    SIN2 = gen_spectral_flux(tfrL02, invert=True, norm=True)
-    SIN3 = gen_spectral_flux(tfrL03, invert=True, norm=True)
+    # SIN2 = gen_spectral_flux(tfrL02, invert=True, norm=True)
+    # SIN3 = gen_spectral_flux(tfrL03, invert=True, norm=True)
     # print(Z1.shape)
     # print(SN1.shape)
     # print(SIN1.shape)
-    SN = np.concatenate((SN1, SN2, SN3), axis=0) #(522, frames)
-    SIN = np.concatenate((SIN1, SIN2, SIN3), axis=0) #(522, frames)
-    ZN = np.concatenate((ZN1, ZN2, ZN3), axis=0) #(522, frames)
-    SN_SIN_ZN = np.concatenate((SN, SIN, ZN), axis=0) #(1566, frames)
+    # SN = np.concatenate((SN1, SN2, SN3), axis=0) #(522, frames)
+    # SIN = np.concatenate((SIN1, SIN2, SIN3), axis=0) #(522, frames)
+    # ZN = np.concatenate((ZN1, ZN2, ZN3), axis=0) #(522, frames)
+    SN_SIN_ZN = np.concatenate((SN1, SIN1, ZN1), axis=0) #(1566, frames)
     # print(SN_SIN_ZN.shape)
     # input("check ...")
 
@@ -441,21 +441,21 @@ if __name__ == "__main__":
     # args = parser.parse_args()
     # melody_extraction(args.InFile, args.OutFile_P)
     # output_feature_extraction(args.InFile, args.OutFile_FEAT, args.OutFile_Z, args.OutFile_CF)
-    wav_dir = "data/train/TONAS/Deblas"
-    tar_dir = "data/train/Process_data_16K"
+    wav_dir = "data/test/EvaluationFramework_ISMIR2014/DATASET"
+    tar_dir = "data/test/Process_data522"
     os.makedirs(tar_dir, exist_ok=True)
 
     for wavfile in tqdm(os.listdir(wav_dir)) :
         if ".wav" in wavfile and not os.path.isfile(os.path.join(tar_dir,"FEAT" ,  f"{wavfile[:-4]}_FEAT.npy")):
             InFile = os.path.join(wav_dir, wavfile)
             os.makedirs(os.path.join(tar_dir,"FEAT"), exist_ok=True)
-            OutFile_FEAT = os.path.join(tar_dir,"FEAT" ,  f"{wavfile[:-4]}_FEAT.npy")
+            OutFile_FEAT = os.path.join(tar_dir,"FEAT" ,  f"{wavfile[:]}_FEAT.npy")
             os.makedirs(os.path.join(tar_dir, "Z"), exist_ok=True)
-            OutFile_Z = os.path.join(tar_dir, "Z", f"{wavfile[:-4]}_Z.npy")
+            OutFile_Z = os.path.join(tar_dir, "Z", f"{wavfile[:]}_Z.npy")
             os.makedirs(os.path.join(tar_dir, "CF"), exist_ok=True)
-            OutFile_CF = os.path.join(tar_dir, "CF", f"{wavfile[:-4]}_CF.npy")
+            OutFile_CF = os.path.join(tar_dir, "CF", f"{wavfile[:]}_CF.npy")
             os.makedirs(os.path.join(tar_dir, "P"), exist_ok=True)
-            OutFile_P = os.path.join(tar_dir, "P", f"{wavfile[:-4]}_P.npy")
+            OutFile_P = os.path.join(tar_dir, "P", f"{wavfile[:]}_P.npy")
 
             # melody_extraction(InFile, OutFile_P)
 

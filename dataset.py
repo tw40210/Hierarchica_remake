@@ -16,10 +16,11 @@ torch.cuda.manual_seed(SEED)
 
 
 class mydataset(Dataset):
-    def __init__(self, path, f_path, amount=None, augmentation=None):
+    def __init__(self, path, f_path, amount=None, augmentation=None, channel=9):
         self.wav_files = []
         self.labels = []
         self.features = []
+        self.channel = channel
         assert len(path) == len(f_path)
 
         for path_id in range(len(path)):
@@ -103,7 +104,7 @@ class mydataset(Dataset):
         # zero_pad = torch.zeros((features_full.shape[0], 9))
         # features_full = torch.cat((zero_pad ,features_full), dim=1) #padding because we need 9 forward and backward
         # features_full = torch.cat(( features_full,zero_pad), dim=1)
-        new_features_full = new_features_full.view(9, 174, -1)
+        new_features_full = new_features_full.view(self.channel, 174, -1)
 
         new_features_full = abs(new_features_full)
         new_features_full = np.power(new_features_full / new_features_full.max(),
