@@ -16,6 +16,8 @@ import matplotlib.pyplot as plt
 import os
 from tqdm import tqdm
 import numba as nb
+from utils import read_notefile, note2timestep
+
 
 
 def STFT(x, fr, fs, Hop, h):
@@ -115,7 +117,6 @@ def CFP_filterbank(x, fr, fs, Hop, h, fc, tc, g, NumPerOctave):
     NumofLayer = np.size(g)
 
     [tfr, f, t, N] = STFT(x, fr, fs, Hop, h)
-
     tfr = np.power(abs(tfr), g[0])
     tfr0 = tfr  # original STFT
     ceps = np.zeros(tfr.shape)
@@ -148,10 +149,12 @@ def CFP_filterbank(x, fr, fs, Hop, h, fc, tc, g, NumPerOctave):
     tfrLF, central_frequencies = Freq2LogFreqMapping(tfr, f, fr, fc, tc, NumPerOctave)
     tfrLQ, central_frequencies = Quef2LogFreqMapping(ceps, q, fs, fc, tc, NumPerOctave)
 
+
+
     return tfrL0, tfrLF, tfrLQ, f, q, t, central_frequencies
 
 
-def full_feature_extraction(x):
+def full_feature_extraction(x, label_note=None):
 
     # if x.shape[1] > 1:
     #     x = np.mean(x, axis=1)
@@ -171,25 +174,59 @@ def full_feature_extraction(x):
 
     tfrL01, tfrLF1, tfrLQ1, f1, q1, t1, CenFreq1 = CFP_filterbank(x, fr, fs, Hop, h1, fc, tc, g, NumPerOctave)
     # tfrL02, tfrLF2, tfrLQ2, f2, q2, t2, CenFreq2 = CFP_filterbank(x, fr, fs, Hop, h2, fc, tc, g, NumPerOctave)
-    # tfrL03, tfrLF3, tfrLQ3, f3, q3, t3, CenFreq3 = CFP_filterbank(x, fr, fs, Hop, h3, fc, tc, g, NumPerOctave)
+    tfrL03, tfrLF3, tfrLQ3, f3, q3, t3, CenFreq3 = CFP_filterbank(x, fr, fs, Hop, h3, fc, tc, g, NumPerOctave)
     Z1 = tfrLF1 * tfrLQ1
     ZN1 = (Z1 - np.mean(Z1)) / np.std(Z1)
+
+    from matplotlib.pyplot import figure
+    figure(num=None, figsize=(8, 6), dpi=80, facecolor='w', edgecolor='k')
+
+    # plt.subplot(6, 1, 1)
+    # plt.imshow(tfrL03)
+    # plt.subplot(6, 1, 2)
+    # plt.imshow(tfrLF1)
+    # plt.subplot(6, 1, 3)
+    # plt.imshow(tfrLQ1)
+    # plt.subplot(6, 1, 4)
+    # plt.imshow(Z1)
+    # H, P = librosa.decompose.hpss(tfrLF1, kernel_size=(5, 10))
+    # plt.subplot(6, 1, 5)
+    # plt.imshow(H)
+    # plt.subplot(6, 1, 6)
+    # plt.imshow(P)
+    # plt.show()
+
+
     # Z2 = tfrLF2 * tfrLQ2
     # ZN2 = (Z2 - np.mean(Z2)) / np.std(Z2)
-    # Z3 = tfrLF3 * tfrLQ3
-    # ZN3 = (Z3 - np.mean(Z3)) / np.std(Z3)
+    Z3 = tfrLF3 * tfrLQ3
+    ZN3 = (Z3 - np.mean(Z3)) / np.std(Z3)
     SN1 = gen_spectral_flux(tfrL01, invert=False, norm=True)
     # SN2 = gen_spectral_flux(tfrL02, invert=False, norm=True)
-    # SN3 = gen_spectral_flux(tfrL03, invert=False, norm=True)
+    SN3 = gen_spectral_flux(tfrL03, invert=False, norm=True)
     SIN1 = gen_spectral_flux(tfrL01, invert=True, norm=True)
     # SIN2 = gen_spectral_flux(tfrL02, invert=True, norm=True)
-    # SIN3 = gen_spectral_flux(tfrL03, invert=True, norm=True)
+    SIN3 = gen_spectral_flux(tfrL03, invert=True, norm=True)
     # print(Z1.shape)
     # print(SN1.shape)
     # print(SIN1.shape)
     # SN = np.concatenate((SN1, SN2, SN3), axis=0) #(522, frames)
     # SIN = np.concatenate((SIN1, SIN2, SIN3), axis=0) #(522, frames)
     # ZN = np.concatenate((ZN1, ZN2, ZN3), axis=0) #(522, frames)
+
+    fig, ax = plt.subplots(6, 1, figsize=(8, 6))
+    ax[0].imshow(tfrL03[:,:int(tfrL03.shape[1]/2)], aspect="auto")
+    ax[1].imshow(SIN1[:,:int(tfrL03.shape[1]/2)], aspect="auto")
+    H, P = librosa.decompose.hpss(abs(SIN1), kernel_size=(2, 40))
+    ax[2].imshow(P[:,:int(tfrL03.shape[1]/2)], aspect="auto")
+    ax[3].imshow(SN1[:,:int(tfrL03.shape[1]/2)], aspect="auto")
+    H, P = librosa.decompose.hpss(abs(SN1), kernel_size=(2, 40))
+    ax[4].imshow(P[:,:int(tfrL03.shape[1]/2)], aspect="auto")
+    ax[5].plot(label_note[:int(len(label_note)/2)])
+    plt.xlim(xmin=0, xmax=int(tfrL03.shape[1]/2))
+    plt.show()
+
+
     SN_SIN_ZN = np.concatenate((SN1, SIN1, ZN1), axis=0) #(1566, frames)
     # print(SN_SIN_ZN.shape)
     # input("check ...")
@@ -397,10 +434,10 @@ def melody_extraction(infile, outfile, model=None):
 
 
 # def output_feature_extraction(infile, outfile_z, outfile_t, outfile_f, outfile_s):
-def output_feature_extraction(x, outfile_feat, outfile_z, outfile_cf):
+def output_feature_extraction(x, outfile_feat, outfile_z, outfile_cf, label_note=None):
     print('Feature Extraction: Extracting Spectral Difference and CFP ...')
     # Z, t, f, CenFreq, tfrL0, tfrLF, tfrLQ = full_feature_extraction(infile)
-    SN_SIN_ZN, Z1, CenFreq1 = full_feature_extraction(x)
+    SN_SIN_ZN, Z1, CenFreq1 = full_feature_extraction(x, label_note= label_note)
 
     np.save(outfile_feat, SN_SIN_ZN)
     np.save(outfile_z, Z1)
@@ -415,6 +452,10 @@ def output_feature_extraction_nosave(x):
 
     return SN_SIN_ZN, Z1, CenFreq1
 
+def librosa_HPSS(stft, mask=False):
+    H, P = librosa.decompose.hpss(stft, kernel_size=(9,9))
+
+    return H, P
 
 
 if __name__ == "__main__":
@@ -460,7 +501,14 @@ if __name__ == "__main__":
             # melody_extraction(InFile, OutFile_P)
 
             x, fs = librosa.load(InFile, sr = hparam.sr)
-            output_feature_extraction(x, OutFile_FEAT, OutFile_Z, OutFile_CF)
+
+            label_path = InFile[:-4]+".notes.Corrected"
+            label_note = read_notefile(label_path)
+            label_note, label_pitch = note2timestep(label_note)
+
+            label_note = np.array(label_note)[:,2]
+
+            output_feature_extraction(x, OutFile_FEAT, OutFile_Z, OutFile_CF, label_note=label_note)
             print(InFile)
 
 

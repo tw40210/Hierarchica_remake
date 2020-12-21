@@ -526,9 +526,6 @@ def whole_song_sampletest(path, f_path, model=None, writer_in=None, timestep=Non
         a = features[index]
         label_path = str(pathlib.Path(labels[index]).parent / (
                 pathlib.Path(features[index]).stem.split('.')[0] + ".notes.Corrected"))
-        if index == 1:
-            features_full = np.load("data/train/Process_data/FEAT/01-D_AMairena.wav_FEAT.npy")  # if trainset isok?
-            label_path = "data/train/TONAS/Deblas/01-D_AMairena.notes.Corrected"
 
         label_note = read_notefile(label_path)
         label_note, label_pitch = note2timestep(label_note)
@@ -547,7 +544,7 @@ def whole_song_sampletest(path, f_path, model=None, writer_in=None, timestep=Non
         for test_step in range(features_full.shape[1] - 18):
             curr_clip = features_full[:, test_step:test_step + 19]
             curr_clip = torch.from_numpy(curr_clip)
-            curr_clip = curr_clip.view(9, 174, -1).float()
+            curr_clip = curr_clip.contiguous().view(channel, 174, -1).float()
             curr_clip = curr_clip.unsqueeze(0)
             curr_clip = curr_clip.to(device)
             model = model.to(device)
