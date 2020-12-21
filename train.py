@@ -1,6 +1,6 @@
 import random
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 import numpy as np
 import torch
@@ -27,10 +27,10 @@ torch.cuda.manual_seed(SEED)
 def train():
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    train_path = ['data/train_extension']
-    train_f_path = ['data/train_extension_Process522/FEAT']
+    train_path = ['data/train/train_extension']
+    train_f_path = ['data/train/train_extension_S1W743HP/FEAT']
     test_path = ['data/test/EvaluationFramework_ISMIR2014/DATASET']
-    test_f_path = ['data/test/Process_data522/FEAT']
+    test_f_path = ['data/test/Process_data_S1W743HP/FEAT']
 
     if torch.cuda.is_available():
         print("cuda")
@@ -116,7 +116,7 @@ def train():
                 if step_count % hparam.step_to_save == 0:
                     testsample_path = hparam.testsample_path
                     testsample_f_path = hparam.testsample_f_path
-                    # whole_song_sampletest(testsample_path, testsample_f_path, model=model, writer_in=writer, timestep=step_count,channel =hparam.FEAT_channel)
+                    whole_song_sampletest(testsample_path, testsample_f_path, model=model, writer_in=writer, timestep=step_count,channel =hparam.FEAT_channel)
                     torch.save(model.state_dict(), f"checkpoint/{step_count}.pth")
                     logger.save_modelbackup(model, new_rundir)
                     print(f'saved in {step_count}\n')

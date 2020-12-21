@@ -163,9 +163,9 @@ def full_feature_extraction(x, label_note=None):
     x = x.astype('float32')
     Hop = 320  # hop size (in sample)
     # Hop = 160 # hop size (in sample)
-    h3 = scipy.signal.blackmanharris(743)  # window size - 2048
+    h3 = scipy.signal.blackmanharris(743)  # window size - 2048   (186, 372, 743)
     h2 = scipy.signal.blackmanharris(372)  # window size - 1024
-    h1 = scipy.signal.blackmanharris(186)  # window size - 512
+    h1 = scipy.signal.blackmanharris(743)  # window size - 512
     fr = 2.0  # frequency resolution
     fc = 80.0  # the frequency of the lowest pitch
     tc = 1 / 1000.0  # the period of the highest pitch
@@ -174,7 +174,7 @@ def full_feature_extraction(x, label_note=None):
 
     tfrL01, tfrLF1, tfrLQ1, f1, q1, t1, CenFreq1 = CFP_filterbank(x, fr, fs, Hop, h1, fc, tc, g, NumPerOctave)
     # tfrL02, tfrLF2, tfrLQ2, f2, q2, t2, CenFreq2 = CFP_filterbank(x, fr, fs, Hop, h2, fc, tc, g, NumPerOctave)
-    tfrL03, tfrLF3, tfrLQ3, f3, q3, t3, CenFreq3 = CFP_filterbank(x, fr, fs, Hop, h3, fc, tc, g, NumPerOctave)
+    # tfrL03, tfrLF3, tfrLQ3, f3, q3, t3, CenFreq3 = CFP_filterbank(x, fr, fs, Hop, h3, fc, tc, g, NumPerOctave)
     Z1 = tfrLF1 * tfrLQ1
     ZN1 = (Z1 - np.mean(Z1)) / np.std(Z1)
 
@@ -199,14 +199,14 @@ def full_feature_extraction(x, label_note=None):
 
     # Z2 = tfrLF2 * tfrLQ2
     # ZN2 = (Z2 - np.mean(Z2)) / np.std(Z2)
-    Z3 = tfrLF3 * tfrLQ3
-    ZN3 = (Z3 - np.mean(Z3)) / np.std(Z3)
+    # Z3 = tfrLF3 * tfrLQ3
+    # ZN3 = (Z3 - np.mean(Z3)) / np.std(Z3)
     SN1 = gen_spectral_flux(tfrL01, invert=False, norm=True)
     # SN2 = gen_spectral_flux(tfrL02, invert=False, norm=True)
-    SN3 = gen_spectral_flux(tfrL03, invert=False, norm=True)
+    # SN3 = gen_spectral_flux(tfrL03, invert=False, norm=True)
     SIN1 = gen_spectral_flux(tfrL01, invert=True, norm=True)
     # SIN2 = gen_spectral_flux(tfrL02, invert=True, norm=True)
-    SIN3 = gen_spectral_flux(tfrL03, invert=True, norm=True)
+    # SIN3 = gen_spectral_flux(tfrL03, invert=True, norm=True)
     # print(Z1.shape)
     # print(SN1.shape)
     # print(SIN1.shape)
@@ -214,20 +214,23 @@ def full_feature_extraction(x, label_note=None):
     # SIN = np.concatenate((SIN1, SIN2, SIN3), axis=0) #(522, frames)
     # ZN = np.concatenate((ZN1, ZN2, ZN3), axis=0) #(522, frames)
 
-    fig, ax = plt.subplots(6, 1, figsize=(8, 6))
-    ax[0].imshow(tfrL03[:,:int(tfrL03.shape[1]/2)], aspect="auto")
-    ax[1].imshow(SIN1[:,:int(tfrL03.shape[1]/2)], aspect="auto")
-    H, P = librosa.decompose.hpss(abs(SIN1), kernel_size=(2, 40))
-    ax[2].imshow(P[:,:int(tfrL03.shape[1]/2)], aspect="auto")
-    ax[3].imshow(SN1[:,:int(tfrL03.shape[1]/2)], aspect="auto")
-    H, P = librosa.decompose.hpss(abs(SN1), kernel_size=(2, 40))
-    ax[4].imshow(P[:,:int(tfrL03.shape[1]/2)], aspect="auto")
-    ax[5].plot(label_note[:int(len(label_note)/2)])
-    plt.xlim(xmin=0, xmax=int(tfrL03.shape[1]/2))
-    plt.show()
+    # fig, ax = plt.subplots(6, 1, figsize=(8, 6))
+    # ax[0].imshow(tfrL03[:,:int(tfrL03.shape[1]/2)], aspect="auto")
+    # ax[1].imshow(SIN1[:,:int(tfrL03.shape[1]/2)], aspect="auto")
+    # H, P = librosa.decompose.hpss(abs(SIN1), kernel_size=(2, 40))
+    # ax[2].imshow(P[:,:int(tfrL03.shape[1]/2)], aspect="auto")
+    # ax[3].imshow(SN1[:,:int(tfrL03.shape[1]/2)], aspect="auto")
+    # H, P = librosa.decompose.hpss(abs(SN1), kernel_size=(2, 40))
+    # ax[4].imshow(P[:,:int(tfrL03.shape[1]/2)], aspect="auto")
+    # ax[5].plot(label_note[:int(len(label_note)/2)])
+    # plt.xlim(xmin=0, xmax=int(tfrL03.shape[1]/2))
+    # plt.show()
+
+    SIN1_H, SIN1_P = librosa.decompose.hpss(abs(SIN1), kernel_size=(2, 40))
+    SN1_H, SN1_P = librosa.decompose.hpss(abs(SN1), kernel_size=(2, 40))
 
 
-    SN_SIN_ZN = np.concatenate((SN1, SIN1, ZN1), axis=0) #(1566, frames)
+    SN_SIN_ZN = np.concatenate((SN1, SIN1, ZN1, SIN1_P, SN1_P), axis=0) #(174*5, frames)
     # print(SN_SIN_ZN.shape)
     # input("check ...")
 
@@ -482,10 +485,21 @@ if __name__ == "__main__":
     # args = parser.parse_args()
     # melody_extraction(args.InFile, args.OutFile_P)
     # output_feature_extraction(args.InFile, args.OutFile_FEAT, args.OutFile_Z, args.OutFile_CF)
-    wav_dir = "data/test/EvaluationFramework_ISMIR2014/DATASET"
-    tar_dir = "data/test/Process_data522"
-    os.makedirs(tar_dir, exist_ok=True)
+    test_wav_dir = "data/test/EvaluationFramework_ISMIR2014/DATASET"
+    test_tar_dir = "data/test/Process_data_S1W743HP"
 
+    testsample_wav_dir = "data/test_sample/wav_label"
+    testsample_tar_dir = "data/test_sample/Process_data_S1W743HP"
+
+    train_wav_dir = "data/train/train_extension"
+    train_tar_dir = "data/train/train_extension_S1W743HP"
+
+    os.makedirs(test_tar_dir, exist_ok=True)
+    os.makedirs(testsample_tar_dir, exist_ok=True)
+    os.makedirs(train_tar_dir, exist_ok=True)
+
+    wav_dir = testsample_wav_dir
+    tar_dir = testsample_tar_dir
     for wavfile in tqdm(os.listdir(wav_dir)) :
         if ".wav" in wavfile and not os.path.isfile(os.path.join(tar_dir,"FEAT" ,  f"{wavfile[:-4]}_FEAT.npy")):
             InFile = os.path.join(wav_dir, wavfile)

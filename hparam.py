@@ -10,7 +10,7 @@ step_to_save = 400
 whole_song_max_len= 700
 gamma_mu=1/2
 onoff = 12
-FEAT_channel=3
+FEAT_channel=5
 
 label_threshold = 0.5
 
@@ -18,4 +18,4 @@ runs_path = "runs"
 modelcode_path = "model.py"
 
 testsample_path = "data/test_sample/wav_label"
-testsample_f_path = "data/test_sample/FEAT"
+testsample_f_path = "data/test_sample/Process_data_S1W743HP/FEAT"
