@@ -173,8 +173,8 @@ def full_feature_extraction(x, label_note=None):
     NumPerOctave = 48  # Number of bins per octave
 
     tfrL01, tfrLF1, tfrLQ1, f1, q1, t1, CenFreq1 = CFP_filterbank(x, fr, fs, Hop, h1, fc, tc, g, NumPerOctave)
-    # tfrL02, tfrLF2, tfrLQ2, f2, q2, t2, CenFreq2 = CFP_filterbank(x, fr, fs, Hop, h2, fc, tc, g, NumPerOctave)
-    # tfrL03, tfrLF3, tfrLQ3, f3, q3, t3, CenFreq3 = CFP_filterbank(x, fr, fs, Hop, h3, fc, tc, g, NumPerOctave)
+    tfrL02, tfrLF2, tfrLQ2, f2, q2, t2, CenFreq2 = CFP_filterbank(x, fr, fs, Hop, h2, fc, tc, g, NumPerOctave)
+    tfrL03, tfrLF3, tfrLQ3, f3, q3, t3, CenFreq3 = CFP_filterbank(x, fr, fs, Hop, h3, fc, tc, g, NumPerOctave)
     Z1 = tfrLF1 * tfrLQ1
     ZN1 = (Z1 - np.mean(Z1)) / np.std(Z1)
 
@@ -231,6 +231,7 @@ def full_feature_extraction(x, label_note=None):
 
 
     SN_SIN_ZN = np.concatenate((SN1, SIN1, ZN1, SIN1_P, SN1_P), axis=0) #(174*5, frames)
+
     # print(SN_SIN_ZN.shape)
     # input("check ...")
 

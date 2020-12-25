@@ -452,7 +452,13 @@ def testset_evaluation(path, f_path, model=None, writer_in=None, timestep=None, 
     #
     # writer.add_scalars(f"scalar\\onoff_F1", {'on_F1': sum_on_F1 / count, 'off_F1': sum_off_F1 / count}, timestep)
 
-def signal_sampletest_(input_x, model=None, writer_in=None, timestep=None):
+def rawout2interval_picth(record, signal, sr):
+    est_intervals, _, _, _, _, _ = Smooth_sdt6(record)
+
+    est_pitch = interval2pitch_in_note(est_intervals, signal = signal, signal_only=True, sr=sr)
+    return est_intervals, est_pitch
+
+def signal_sampletest_stream(input_x, past_buffer, model=None, writer_in=None, timestep=None, channel=hparam.FEAT_channel):
     if not model:
         model = get_Resnet()
     if not writer_in:
@@ -467,22 +473,24 @@ def signal_sampletest_(input_x, model=None, writer_in=None, timestep=None):
     count = 0
 
     record = []
+    future_buffersize = hparam.FEAT_futurepad
+    past_buffersize = hparam.FEAT_pastpad
 
     features_full = input_x
 
     # cut muted tail from feature
     # features_full = features_full[:, :label_note.shape[0]]
     # pad 9 zero steps in both head and tail
-    zero_pad = np.zeros((features_full.shape[0], 9))
-    features_full = np.concatenate((zero_pad, features_full), axis=1)
-    features_full = np.concatenate((features_full, zero_pad), axis=1)
+    assert past_buffer.shape == (features_full.shape[0], past_buffersize+future_buffersize)
+    padding = past_buffer
+    features_full = np.concatenate((padding, features_full), axis=1) # only do past padding
     features_full = abs(features_full)
     features_full = np.power(features_full / features_full.max(), hparam.gamma_mu)  # normalize &gamma compression
 
     for test_step in range(features_full.shape[1] - 18):
         curr_clip = features_full[:, test_step:test_step + 19]
         curr_clip = torch.from_numpy(curr_clip)
-        curr_clip = curr_clip.view(9, 174, -1).float()
+        curr_clip = curr_clip.view(channel, 174, -1).float()
         curr_clip = curr_clip.unsqueeze(0)
         curr_clip = curr_clip.to(device)
         model = model.to(device)
@@ -496,8 +504,9 @@ def signal_sampletest_(input_x, model=None, writer_in=None, timestep=None):
         count += 1
 
     record = np.array(record)
+    furture_buffer = features_full[:, - (past_buffersize + future_buffersize):]
 
-    return record
+    return record, furture_buffer
 
 
 
@@ -783,23 +792,38 @@ def gt_pitch_in_note(intervals, pitch_label, time_resolution=0.02):
     return np.array(gt_pitch)
 
 
-def interval2pitch_in_note(interval, wavfile, sr=44100, second_length=200):
+def interval2pitch_in_note(interval, wavfile=None, signal=None, signal_only=False, sr=44100, second_length=200):
     pitch_steps = get_pitch_steps()
 
     pitches = []
 
     pitch_midi_list = []
-    y, sr = librosa.load(wavfile, sr=sr, dtype="double")
+
+    if not wavfile and not signal_only:
+        y, sr = librosa.load(wavfile, sr=sr, dtype="double")
+    elif signal_only:
+        y = signal
+    else:
+        print("wrong parameters!")
+        assert False
+
 
     _f0, t = pw.dio(y, sr)
 
     assert interval[-1][1] * second_length <= len(_f0)
     for idx, note in enumerate(interval):
+        if _f0.max()<1:
+            pitch_midi_list.append(0)
+            continue
+
         pitches = _f0[int(note[0] * second_length):int(note[1] * second_length)]
         length = len(pitches)
         pitches = pitches[int(length / 2):-int(length / 4)]
         pitches = pitches[pitches!=0]
         pitch_count=1.2
+
+        # if pitches
+        #
         while(pitches.size <1):
             pitches = _f0[int(note[0] * second_length):int(note[1] * second_length)]
             pitches = pitches[int(length / (2*pitch_count)):-int(length / (4*pitch_count))]

@@ -5,12 +5,15 @@ num_workers=8
 randomsample_size=20
 epoch=30
 lr = 0.0001
-step_to_test = 40
-step_to_save = 400
+step_to_test = 4
+step_to_save = 4
 whole_song_max_len= 700
 gamma_mu=1/2
 onoff = 12
 FEAT_channel=5
+FEAT_freqbin_num = 174
+FEAT_pastpad=9
+FEAT_futurepad=9
 
 label_threshold = 0.5
 
