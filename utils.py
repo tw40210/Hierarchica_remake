@@ -810,7 +810,8 @@ def interval2pitch_in_note(interval, wavfile=None, signal=None, signal_only=Fals
 
     _f0, t = pw.dio(y, sr)
 
-    assert interval[-1][1] * second_length <= len(_f0)
+    if len(interval)>0:
+        assert interval[-1][1] * second_length <= len(_f0)
     for idx, note in enumerate(interval):
         if _f0.max()<1:
             pitch_midi_list.append(0)
