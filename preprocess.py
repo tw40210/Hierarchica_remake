@@ -154,7 +154,7 @@ def CFP_filterbank(x, fr, fs, Hop, h, fc, tc, g, NumPerOctave):
     return tfrL0, tfrLF, tfrLQ, f, q, t, central_frequencies
 
 
-def full_feature_extraction(x, label_note=None):
+def full_feature_extraction(x, label_note=None, HP=None):
 
     # if x.shape[1] > 1:
     #     x = np.mean(x, axis=1)
@@ -165,7 +165,7 @@ def full_feature_extraction(x, label_note=None):
     # Hop = 160 # hop size (in sample)
     h3 = scipy.signal.blackmanharris(743)  # window size - 2048   (186, 372, 743)
     h2 = scipy.signal.blackmanharris(372)  # window size - 1024
-    h1 = scipy.signal.blackmanharris(743)  # window size - 512
+    h1 = scipy.signal.blackmanharris(186)  # window size - 512
     fr = 2.0  # frequency resolution
     fc = 80.0  # the frequency of the lowest pitch
     tc = 1 / 1000.0  # the period of the highest pitch
@@ -178,8 +178,8 @@ def full_feature_extraction(x, label_note=None):
     Z1 = tfrLF1 * tfrLQ1
     ZN1 = (Z1 - np.mean(Z1)) / np.std(Z1)
 
-    from matplotlib.pyplot import figure
-    figure(num=None, figsize=(8, 6), dpi=80, facecolor='w', edgecolor='k')
+    # from matplotlib.pyplot import figure
+    # figure(num=None, figsize=(8, 6), dpi=80, facecolor='w', edgecolor='k')
 
     # plt.subplot(6, 1, 1)
     # plt.imshow(tfrL03)
@@ -229,13 +229,15 @@ def full_feature_extraction(x, label_note=None):
     SIN1_H, SIN1_P = librosa.decompose.hpss(abs(SIN1), kernel_size=(2, 40))
     SN1_H, SN1_P = librosa.decompose.hpss(abs(SN1), kernel_size=(2, 40))
 
-
-    SN_SIN_ZN = np.concatenate((SN1, SIN1, ZN1, SIN1_P, SN1_P), axis=0) #(174*5, frames)
+    if HP:
+        SN_SIN_ZN = np.concatenate((SN1, SIN1, ZN1, SIN1_P, SN1_P), axis=0) #(174*5, frames)
+    else:
+        SN_SIN_ZN = np.concatenate((SN1, SIN1, ZN1), axis=0)  # (174*5, frames)
     # print(SN_SIN_ZN.shape)
     # input("check ...")
 
     # return Z, CenFreq, tfrL0, tfrLF, tfrLQ
-    return SN_SIN_ZN, Z1, CenFreq1
+    return SN_SIN_ZN, Z1, CenFreq1, h1.shape
 
 
 def gen_spectral_flux(S, invert=False, norm=True):
@@ -437,14 +439,15 @@ def melody_extraction(infile, outfile, model=None):
 
 
 # def output_feature_extraction(infile, outfile_z, outfile_t, outfile_f, outfile_s):
-def output_feature_extraction(x, outfile_feat, outfile_z, outfile_cf, label_note=None):
+def output_feature_extraction(x, outfile_feat, outfile_z, outfile_cf, label_note=None, HP=None):
     print('Feature Extraction: Extracting Spectral Difference and CFP ...')
     # Z, t, f, CenFreq, tfrL0, tfrLF, tfrLQ = full_feature_extraction(infile)
-    SN_SIN_ZN, Z1, CenFreq1 = full_feature_extraction(x, label_note= label_note)
+    SN_SIN_ZN, Z1, CenFreq1, h1_shape = full_feature_extraction(x, label_note= label_note, HP=HP)
 
     np.save(outfile_feat, SN_SIN_ZN)
     np.save(outfile_z, Z1)
     np.save(outfile_cf, CenFreq1)
+    print(SN_SIN_ZN.shape," ", h1_shape)
 
     return SN_SIN_ZN, Z1, CenFreq1
 
@@ -486,45 +489,48 @@ if __name__ == "__main__":
     # melody_extraction(args.InFile, args.OutFile_P)
     # output_feature_extraction(args.InFile, args.OutFile_FEAT, args.OutFile_Z, args.OutFile_CF)
     test_wav_dir = "data/test/EvaluationFramework_ISMIR2014/DATASET"
-    test_tar_dir = "data/test/Process_data_S1W743HP"
+    test_tar_dir = "data/test/Process_data_S1W186"
 
     testsample_wav_dir = "data/test_sample/wav_label"
-    testsample_tar_dir = "data/test_sample/Process_data_S1W743HP"
+    testsample_tar_dir = "data/test_sample/Process_data_S1W186"
 
     train_wav_dir = "data/train/train_extension"
-    train_tar_dir = "data/train/train_extension_S1W743HP"
+    train_tar_dir = "data/train/train_extension_S1W186"
 
     os.makedirs(test_tar_dir, exist_ok=True)
     os.makedirs(testsample_tar_dir, exist_ok=True)
     os.makedirs(train_tar_dir, exist_ok=True)
 
-    wav_dir = testsample_wav_dir
-    tar_dir = testsample_tar_dir
-    for wavfile in tqdm(os.listdir(wav_dir)) :
-        if ".wav" in wavfile and not os.path.isfile(os.path.join(tar_dir,"FEAT" ,  f"{wavfile[:-4]}_FEAT.npy")):
-            InFile = os.path.join(wav_dir, wavfile)
-            os.makedirs(os.path.join(tar_dir,"FEAT"), exist_ok=True)
-            OutFile_FEAT = os.path.join(tar_dir,"FEAT" ,  f"{wavfile[:]}_FEAT.npy")
-            os.makedirs(os.path.join(tar_dir, "Z"), exist_ok=True)
-            OutFile_Z = os.path.join(tar_dir, "Z", f"{wavfile[:]}_Z.npy")
-            os.makedirs(os.path.join(tar_dir, "CF"), exist_ok=True)
-            OutFile_CF = os.path.join(tar_dir, "CF", f"{wavfile[:]}_CF.npy")
-            os.makedirs(os.path.join(tar_dir, "P"), exist_ok=True)
-            OutFile_P = os.path.join(tar_dir, "P", f"{wavfile[:]}_P.npy")
 
-            # melody_extraction(InFile, OutFile_P)
+    for wav_dir, tar_dir in [(test_wav_dir, test_tar_dir),(testsample_wav_dir, testsample_tar_dir),(train_wav_dir, train_tar_dir)]:
+        print(wav_dir)
 
-            x, fs = librosa.load(InFile, sr = hparam.sr)
+        for wavfile in tqdm(os.listdir(wav_dir)) :
 
-            label_path = InFile[:-4]+".notes.Corrected"
-            label_note = read_notefile(label_path)
-            label_note, label_pitch = note2timestep(label_note)
+            if ".wav" in wavfile and not os.path.isfile(os.path.join(tar_dir,"FEAT" ,  f"{wavfile[:]}_FEAT.npy")):
+                InFile = os.path.join(wav_dir, wavfile)
+                os.makedirs(os.path.join(tar_dir,"FEAT"), exist_ok=True)
+                OutFile_FEAT = os.path.join(tar_dir,"FEAT" ,  f"{wavfile[:]}_FEAT.npy")
+                os.makedirs(os.path.join(tar_dir, "Z"), exist_ok=True)
+                OutFile_Z = os.path.join(tar_dir, "Z", f"{wavfile[:]}_Z.npy")
+                os.makedirs(os.path.join(tar_dir, "CF"), exist_ok=True)
+                OutFile_CF = os.path.join(tar_dir, "CF", f"{wavfile[:]}_CF.npy")
+                os.makedirs(os.path.join(tar_dir, "P"), exist_ok=True)
+                OutFile_P = os.path.join(tar_dir, "P", f"{wavfile[:]}_P.npy")
 
-            label_note = np.array(label_note)[:,2]
+                # melody_extraction(InFile, OutFile_P)
 
-            output_feature_extraction(x, OutFile_FEAT, OutFile_Z, OutFile_CF, label_note=label_note)
-            print(InFile)
+                x, fs = librosa.load(InFile, sr = hparam.sr)
+
+                label_path = InFile[:-4]+".notes.Corrected"
+                label_note = read_notefile(label_path)
+                label_note, label_pitch = note2timestep(label_note)
+
+                label_note = np.array(label_note)[:,2]
+
+                output_feature_extraction(x, OutFile_FEAT, OutFile_Z, OutFile_CF, label_note=label_note, HP=False)
+                print(InFile)
 
 
 
-    print("finish!")
+        print("finish!")

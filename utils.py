@@ -372,8 +372,8 @@ def testset_evaluation(path, f_path, model=None, writer_in=None, timestep=None, 
         #     continue
 
 
-        # if count > 4:  # shorten test time by sampling
-        #     break
+        if count > 4:  # shorten test time by sampling
+            break
         record = []
         features_full = np.load(features[index])
         label_path = str(pathlib.Path(labels[index]).parent / (
@@ -793,7 +793,8 @@ def interval2pitch_in_note(interval, wavfile, sr=44100, second_length=200):
 
     _f0, t = pw.dio(y, sr)
 
-    assert interval[-1][1] * second_length <= len(_f0)
+    if len(interval)>0:
+        assert interval[-1][1] * second_length <= len(_f0)
     for idx, note in enumerate(interval):
         pitches = _f0[int(note[0] * second_length):int(note[1] * second_length)]
         length = len(pitches)

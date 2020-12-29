@@ -1,6 +1,6 @@
 import random
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 import numpy as np
 import torch
@@ -15,7 +15,7 @@ from model import get_BCE_loss
 from utils import get_accuracy, whole_song_sampletest, Logger, get_Resnet, testset_evaluation, testset_evaluation_train
 
 
-tensor_comment = "baseline522_version"
+tensor_comment = "baseline_S1W743version_simple_detail"
 SEED=0
 random.seed(SEED)
 np.random.seed(SEED)
@@ -28,10 +28,11 @@ def train():
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     train_path = ['data/train/train_extension']
-    train_f_path = ['data/train/train_extension_S1W743HP/FEAT']
+    train_f_path = ['data/train/train_extension_Process522_win743/FEAT']
     test_path = ['data/test/EvaluationFramework_ISMIR2014/DATASET']
-    test_f_path = ['data/test/Process_data_S1W743HP/FEAT']
-
+    test_f_path = ['data/test/Process_data522_win743/FEAT']
+    testsample_path = "data/test_sample/wav_label"
+    testsample_f_path = "data/test_sample/test_sample522_win743/FEAT"
     if torch.cuda.is_available():
         print("cuda")
     else:
@@ -52,7 +53,7 @@ def train():
     # model.fc = nn.Linear(model.fc.in_features, 6)
     # model.avgpool = nn.AvgPool2d(kernel_size=(17, 1), stride=1, padding=0)
     model= get_Resnet(channel=hparam.FEAT_channel).to(device)
-    # model.load_state_dict(torch.load("standard_checkpoint/5280_augset_1028.pth"))
+    # model.load_state_dict(torch.load("standard_checkpoint/1227_baselinesimpletoogood.pth"))
     # print("load OK")
 
     optimizer = optim.RMSprop(model.parameters(), lr=hparam.lr, weight_decay=0, momentum=0.9)
@@ -114,8 +115,8 @@ def train():
                     bar.update(1)
 
                 if step_count % hparam.step_to_save == 0:
-                    testsample_path = hparam.testsample_path
-                    testsample_f_path = hparam.testsample_f_path
+
+
                     whole_song_sampletest(testsample_path, testsample_f_path, model=model, writer_in=writer, timestep=step_count,channel =hparam.FEAT_channel)
                     torch.save(model.state_dict(), f"checkpoint/{step_count}.pth")
                     logger.save_modelbackup(model, new_rundir)
