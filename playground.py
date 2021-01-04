@@ -16,6 +16,10 @@ import  mir_eval
 # !/usr/bin/python
 # -*- coding: UTF-8 -*-
 
+
+y, sr = librosa.load("data/train/TONAS/Deblas/01-D_AMairena.wav")
+
+#+==============
 import threading
 import time
 
