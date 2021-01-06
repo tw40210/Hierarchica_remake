@@ -25,12 +25,12 @@ torch.cuda.manual_seed(SEED)
 
 
 def train():
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     train_path = ['data/train/train_extension']
-    train_f_path = ['data/train/train_extension_S1W743HP/FEAT']
+    train_f_path = ['data/train/train_extension_Process_data/FEAT']
     test_path = ['data/test/EvaluationFramework_ISMIR2014/DATASET']
-    test_f_path = ['data/test/Process_data_S1W743HP/FEAT']
+    test_f_path = ['data/test/Process_data_S3_refactor/FEAT']
 
     if torch.cuda.is_available():
         print("cuda")
@@ -45,12 +45,7 @@ def train():
                             num_workers=hparam.num_workers)
 
 
-    # model = ResNet(BasicBlock, [2, 2, 2, 2])
-    # num_fout = model.conv1.out_channels
-    # model.conv1 = nn.Conv2d(3, num_fout, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3),
-    #                            bias=False)
-    # model.fc = nn.Linear(model.fc.in_features, 6)
-    # model.avgpool = nn.AvgPool2d(kernel_size=(17, 1), stride=1, padding=0)
+
     model= get_Resnet(channel=hparam.FEAT_channel).to(device)
     # model.load_state_dict(torch.load("standard_checkpoint/5280_augset_1028.pth"))
     # print("load OK")

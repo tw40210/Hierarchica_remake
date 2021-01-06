@@ -154,7 +154,7 @@ def CFP_filterbank(x, fr, fs, Hop, h, fc, tc, g, NumPerOctave):
     return tfrL0, tfrLF, tfrLQ, f, q, t, central_frequencies
 
 
-def full_feature_extraction(x, label_note=None):
+def full_feature_extraction(x, window_size, label_note=None):
 
     # if x.shape[1] > 1:
     #     x = np.mean(x, axis=1)
@@ -162,7 +162,9 @@ def full_feature_extraction(x, label_note=None):
     fs = 16000.0  # sampling frequency
     x = x.astype('float32')
     Hop = 320  # hop size (in sample)
-    # Hop = 160 # hop size (in sample)
+
+    h = [scipy.signal.blackmanharris(w_size) for w_size in window_size]
+
     h3 = scipy.signal.blackmanharris(743)  # window size - 2048   (186, 372, 743)
     h2 = scipy.signal.blackmanharris(372)  # window size - 1024
     h1 = scipy.signal.blackmanharris(743)  # window size - 512
@@ -172,71 +174,35 @@ def full_feature_extraction(x, label_note=None):
     g = np.array([0.24, 0.6, 1])
     NumPerOctave = 48  # Number of bins per octave
 
-    tfrL01, tfrLF1, tfrLQ1, f1, q1, t1, CenFreq1 = CFP_filterbank(x, fr, fs, Hop, h1, fc, tc, g, NumPerOctave)
-    tfrL02, tfrLF2, tfrLQ2, f2, q2, t2, CenFreq2 = CFP_filterbank(x, fr, fs, Hop, h2, fc, tc, g, NumPerOctave)
-    tfrL03, tfrLF3, tfrLQ3, f3, q3, t3, CenFreq3 = CFP_filterbank(x, fr, fs, Hop, h3, fc, tc, g, NumPerOctave)
-    Z1 = tfrLF1 * tfrLQ1
-    ZN1 = (Z1 - np.mean(Z1)) / np.std(Z1)
+    Features_CFP = [ CFP_filterbank(x, fr, fs, Hop, sub_h, fc, tc, g, NumPerOctave) for sub_h in h  ]
 
-    from matplotlib.pyplot import figure
-    figure(num=None, figsize=(8, 6), dpi=80, facecolor='w', edgecolor='k')
+    Z_list=[]
+    ZN_list=[]
+    SN_list=[]
+    SIN_list=[]
 
-    # plt.subplot(6, 1, 1)
-    # plt.imshow(tfrL03)
-    # plt.subplot(6, 1, 2)
-    # plt.imshow(tfrLF1)
-    # plt.subplot(6, 1, 3)
-    # plt.imshow(tfrLQ1)
-    # plt.subplot(6, 1, 4)
-    # plt.imshow(Z1)
-    # H, P = librosa.decompose.hpss(tfrLF1, kernel_size=(5, 10))
-    # plt.subplot(6, 1, 5)
-    # plt.imshow(H)
-    # plt.subplot(6, 1, 6)
-    # plt.imshow(P)
-    # plt.show()
+    for Feature in Features_CFP:
+        Z_list.append(Feature[1]*Feature[2])
+        ZN_list.append((Z_list[-1] - np.mean(Z_list[-1])) / np.std(Z_list[-1]))
+        SN_list.append(gen_spectral_flux(Feature[0], invert=False, norm=True))
+        SIN_list.append(gen_spectral_flux(Feature[0], invert=True, norm=True))
 
+    All_Z =Z_list[0]
+    All_ZN=ZN_list[0]
+    All_SN= SN_list[0]
+    All_SIN = SIN_list[0]
 
-    # Z2 = tfrLF2 * tfrLQ2
-    # ZN2 = (Z2 - np.mean(Z2)) / np.std(Z2)
-    # Z3 = tfrLF3 * tfrLQ3
-    # ZN3 = (Z3 - np.mean(Z3)) / np.std(Z3)
-    SN1 = gen_spectral_flux(tfrL01, invert=False, norm=True)
-    # SN2 = gen_spectral_flux(tfrL02, invert=False, norm=True)
-    # SN3 = gen_spectral_flux(tfrL03, invert=False, norm=True)
-    SIN1 = gen_spectral_flux(tfrL01, invert=True, norm=True)
-    # SIN2 = gen_spectral_flux(tfrL02, invert=True, norm=True)
-    # SIN3 = gen_spectral_flux(tfrL03, invert=True, norm=True)
-    # print(Z1.shape)
-    # print(SN1.shape)
-    # print(SIN1.shape)
-    # SN = np.concatenate((SN1, SN2, SN3), axis=0) #(522, frames)
-    # SIN = np.concatenate((SIN1, SIN2, SIN3), axis=0) #(522, frames)
-    # ZN = np.concatenate((ZN1, ZN2, ZN3), axis=0) #(522, frames)
-
-    # fig, ax = plt.subplots(6, 1, figsize=(8, 6))
-    # ax[0].imshow(tfrL03[:,:int(tfrL03.shape[1]/2)], aspect="auto")
-    # ax[1].imshow(SIN1[:,:int(tfrL03.shape[1]/2)], aspect="auto")
-    # H, P = librosa.decompose.hpss(abs(SIN1), kernel_size=(2, 40))
-    # ax[2].imshow(P[:,:int(tfrL03.shape[1]/2)], aspect="auto")
-    # ax[3].imshow(SN1[:,:int(tfrL03.shape[1]/2)], aspect="auto")
-    # H, P = librosa.decompose.hpss(abs(SN1), kernel_size=(2, 40))
-    # ax[4].imshow(P[:,:int(tfrL03.shape[1]/2)], aspect="auto")
-    # ax[5].plot(label_note[:int(len(label_note)/2)])
-    # plt.xlim(xmin=0, xmax=int(tfrL03.shape[1]/2))
-    # plt.show()
-
-    SIN1_H, SIN1_P = librosa.decompose.hpss(abs(SIN1), kernel_size=(2, 40))
-    SN1_H, SN1_P = librosa.decompose.hpss(abs(SN1), kernel_size=(2, 40))
+    for idx in range(len(Z_list)-1):
+        All_Z = np.concatenate((All_Z, Z_list[idx+1]), axis=0)
+        All_ZN = np.concatenate((All_ZN, ZN_list[idx+1]), axis=0)
+        All_SN = np.concatenate((All_SN, SN_list[idx+1]), axis=0)
+        All_SIN = np.concatenate((All_SIN, SIN_list[idx+1]), axis=0)
 
 
-    SN_SIN_ZN = np.concatenate((SN1, SIN1, ZN1, SIN1_P, SN1_P), axis=0) #(174*5, frames)
+    new_SN_SIN_ZN = np.concatenate((All_SN, All_SIN, All_ZN), axis=0)
 
-    # print(SN_SIN_ZN.shape)
-    # input("check ...")
 
-    # return Z, CenFreq, tfrL0, tfrLF, tfrLQ
-    return SN_SIN_ZN, Z1, CenFreq1
+    return new_SN_SIN_ZN
 
 
 def gen_spectral_flux(S, invert=False, norm=True):
@@ -257,9 +223,6 @@ def gen_spectral_flux(S, invert=False, norm=True):
 
 def feature_extraction(filename):
     x, fs = librosa.load(filename, sr = hparam.sr)
-    # if x.shape[1] > 1:
-    #     x = np.mean(x, axis=1)
-    # x = scipy.signal.resample_poly(x, 16000, fs)
     fs = 16000.0  # sampling frequency
     x = x.astype('float32')
     Hop = 320  # hop size (in sample)
@@ -286,21 +249,17 @@ def patch_extraction(Z, patch_size, th):
 
     M, N = np.shape(Z)
 
-    #    data = np.zeros([1, patch_size, patch_size])
-    #    mapping = np.zeros([1, 2])
     data = np.zeros([300000, patch_size, patch_size])
     mapping = np.zeros([300000, 2])
     counter = 0
     for t_idx in range(half_ps, N - half_ps):
         PKS, LOCS = findpeaks(Z[:, t_idx], th)
-        #        print('time at: ', t_idx)
         for mm in range(0, len(LOCS)):
             if LOCS[mm] >= half_ps and LOCS[mm] < M - half_ps and counter < 300000:  # and PKS[mm]> 0.5*max(Z[:,t_idx]):
                 patch = Z[np.ix_(range(LOCS[mm] - half_ps, LOCS[mm] + half_ps + 1),
                                  range(t_idx - half_ps, t_idx + half_ps + 1))]
                 patch = patch.reshape(1, patch_size, patch_size)
-                #                data = np.append(data, patch, axis=0)
-                #                mapping = np.append(mapping, np.array([[LOCS[mm], t_idx]]), axis=0)
+
                 data[counter, :, :] = patch
                 mapping[counter, :] = np.array([[LOCS[mm], t_idx]])
                 counter = counter + 1
@@ -310,17 +269,9 @@ def patch_extraction(Z, patch_size, th):
     data = data[:counter - 1, :, :]
     mapping = mapping[:counter - 1, :]
     Z = Z[:M - half_ps, :]
-    #    print(data.shape)
-    #    print(mapping.shape)
+
     return data, mapping, half_ps, N, Z
 
-#
-# def patch_prediction(modelname, data, patch_size, model=None):
-#     data = data.reshape(data.shape[0], patch_size, patch_size, 1)
-#     if not model:
-#         model = load_model(modelname)
-#     pred = model.predict(data)
-#     return pred
 
 
 def contour_prediction(mapping, pred, N, half_ps, Z, t, CenFreq, max_method):
@@ -329,15 +280,15 @@ def contour_prediction(mapping, pred, N, half_ps, Z, t, CenFreq, max_method):
     pred = pred[:, 1]
     pred_idx = np.where(pred > 0.5)
     MM = mapping[pred_idx[0], :]
-    #    print(MM.shape)
+
     pred_prob = pred[pred_idx[0]]
-    #    print(pred_prob.shape)
+
     MM = np.append(MM, np.reshape(pred_prob, [len(pred_prob), 1]), axis=1)
     MM = MM[MM[:, 1].argsort()]
 
     for t_idx in range(half_ps, N - half_ps):
         Candidate = MM[np.where(MM[:, 1] == t_idx)[0], :]
-        #        print(Candidate[:,2])
+
         if Candidate.shape[0] >= 2:
             if max_method == 'posterior':
                 fi = np.where(Candidate[:, 2] == np.max(Candidate[:, 2]))
@@ -345,7 +296,7 @@ def contour_prediction(mapping, pred, N, half_ps, Z, t, CenFreq, max_method):
             elif max_method == 'prior':
                 fi = Z[Candidate[:, 0].astype('int'), t_idx].argmax(axis=0)
             fi = fi.astype('int')
-            #            print(fi)
+
             PredContour[Candidate[fi, 1].astype('int')] = Candidate[fi, 0]
         elif Candidate.shape[0] == 1:
             PredContour[Candidate[0, 1].astype('int')] = Candidate[0, 0]
@@ -357,9 +308,7 @@ def contour_prediction(mapping, pred, N, half_ps, Z, t, CenFreq, max_method):
         if PredContour[k] > 1:
             PredContour[k] = CenFreq[PredContour[k].astype('int')]
 
-    Z = Z[:, range(half_ps, N - half_ps)]
-    #    print(t.shape)
-    #    print(PredContour.shape)
+
     result = np.zeros([t.shape[0], 2])
     result[:, 0] = t / 16000.0
     result[:, 1] = PredContour
@@ -411,43 +360,22 @@ def findpeaks(x, th):
 
 
 def melody_extraction(infile, outfile, model=None):
-    # melody_extraction(‘path1/input.wav’, ‘path2/output.txt’)
-    patch_size = 25
-    th = 0.5
-    modelname = 'checkpoint/model3_patch25'
-    max_method = 'posterior'
-    # print('Feature extraction of ' + infile)
+
     print('Feature Extraction: Extracting Pitch Contour ...')
     Z, t, CenFreq, tfrL0, tfrLF, tfrLQ = feature_extraction(infile)
-    # if max_method == 'raw':
-    #     result = contour_pred_from_raw(Z, t, CenFreq)
-    #     postgram = Z
-    # else:
-    #     print('Patch extraction from %d frames' % (Z.shape[1]))
-    #     data, mapping, half_ps, N, Z = patch_extraction(Z, patch_size, th)
-    #     print('Predictions from %d patches' % (data.shape[0]))
-    #     pred = patch_prediction(modelname, data, patch_size, model)
-    #     result = contour_prediction(mapping, pred, N, half_ps, Z, t, \
-    #                                 CenFreq, max_method)
-    #     postgram = show_prediction(mapping, pred, N, half_ps, Z, t)
-    # # print(result.shape)
-    # np.save(outfile, result)
-    # np.savetxt(f'{outfile[:-3]}txt', result)
-    # p = np.load(outfile)
     return  Z, tfrL0, tfrLF, tfrLQ, t, CenFreq
 
 
 # def output_feature_extraction(infile, outfile_z, outfile_t, outfile_f, outfile_s):
-def output_feature_extraction(x, outfile_feat, outfile_z, outfile_cf, label_note=None):
+def output_feature_extraction(x, outfile_feat, outfile_z, outfile_cf, label_note=None, window_size=[743]):
     print('Feature Extraction: Extracting Spectral Difference and CFP ...')
     # Z, t, f, CenFreq, tfrL0, tfrLF, tfrLQ = full_feature_extraction(infile)
-    SN_SIN_ZN, Z1, CenFreq1 = full_feature_extraction(x, label_note= label_note)
+    SN_SIN_ZN= full_feature_extraction(x, label_note= label_note,window_size=window_size )
 
     np.save(outfile_feat, SN_SIN_ZN)
-    np.save(outfile_z, Z1)
-    np.save(outfile_cf, CenFreq1)
 
-    return SN_SIN_ZN, Z1, CenFreq1
+
+    return SN_SIN_ZN
 
 def output_feature_extraction_nosave(x):
     print('Feature Extraction: Extracting Spectral Difference and CFP ...')
@@ -463,31 +391,9 @@ def librosa_HPSS(stft, mask=False):
 
 
 if __name__ == "__main__":
-    #    melody_extraction(infile, outfile)
 
-    #    infile = 'opera_fem4.wav'
-    #    outfile = 'opera_fem4'
-    #    result = melody_extraction(infile, outfile)
-    #    plt.figure(1)
-    #    plt.plot(result[:,0],result[:,1])
-
-    # parser = argparse.ArgumentParser(
-    #     description="Melody extraction")
-    # parser.add_argument("InFile", type=str)
-    # #parser.add_argument("OutFile", type=str)
-    # parser.add_argument("OutFile_FEAT", type=str)
-    # parser.add_argument("OutFile_Z", type=str)
-    # parser.add_argument("OutFile_CF", type=str)
-    # parser.add_argument("OutFile_P", type=str)
-    # #parser.add_argument("OutFile_T", type=str)
-    # #parser.add_argument("OutFile_F", type=str)
-    # #parser.add_argument("OutFile_S", type=str)
-    #AA
-    # args = parser.parse_args()
-    # melody_extraction(args.InFile, args.OutFile_P)
-    # output_feature_extraction(args.InFile, args.OutFile_FEAT, args.OutFile_Z, args.OutFile_CF)
     test_wav_dir = "data/test/EvaluationFramework_ISMIR2014/DATASET"
-    test_tar_dir = "data/test/Process_data_S1W743HP"
+    test_tar_dir = "data/test/Process_data_S3_refactor"
 
     testsample_wav_dir = "data/test_sample/wav_label"
     testsample_tar_dir = "data/test_sample/Process_data_S1W743HP"
@@ -499,10 +405,10 @@ if __name__ == "__main__":
     os.makedirs(testsample_tar_dir, exist_ok=True)
     os.makedirs(train_tar_dir, exist_ok=True)
 
-    wav_dir = testsample_wav_dir
-    tar_dir = testsample_tar_dir
+    wav_dir = test_wav_dir
+    tar_dir = test_tar_dir
     for wavfile in tqdm(os.listdir(wav_dir)) :
-        if ".wav" in wavfile and not os.path.isfile(os.path.join(tar_dir,"FEAT" ,  f"{wavfile[:-4]}_FEAT.npy")):
+        if ".wav" in wavfile and not os.path.isfile(os.path.join(tar_dir,"FEAT" ,  f"{wavfile[:]}_FEAT.npy")):
             InFile = os.path.join(wav_dir, wavfile)
             os.makedirs(os.path.join(tar_dir,"FEAT"), exist_ok=True)
             OutFile_FEAT = os.path.join(tar_dir,"FEAT" ,  f"{wavfile[:]}_FEAT.npy")
@@ -523,7 +429,7 @@ if __name__ == "__main__":
 
             label_note = np.array(label_note)[:,2]
 
-            output_feature_extraction(x, OutFile_FEAT, OutFile_Z, OutFile_CF, label_note=label_note)
+            output_feature_extraction(x, OutFile_FEAT, OutFile_Z, OutFile_CF, label_note=label_note, window_size=[743, 372, 186])
             print(InFile)
 
 
