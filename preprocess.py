@@ -154,7 +154,7 @@ def CFP_filterbank(x, fr, fs, Hop, h, fc, tc, g, NumPerOctave):
     return tfrL0, tfrLF, tfrLQ, f, q, t, central_frequencies
 
 
-def full_feature_extraction(x, label_note=None):
+def full_feature_extraction(x, window_size, label_note=None):
 
     # if x.shape[1] > 1:
     #     x = np.mean(x, axis=1)
@@ -162,7 +162,9 @@ def full_feature_extraction(x, label_note=None):
     fs = 16000.0  # sampling frequency
     x = x.astype('float32')
     Hop = 320  # hop size (in sample)
-    # Hop = 160 # hop size (in sample)
+
+    h = [scipy.signal.blackmanharris(w_size) for w_size in window_size]
+
     h3 = scipy.signal.blackmanharris(743)  # window size - 2048   (186, 372, 743)
     h2 = scipy.signal.blackmanharris(372)  # window size - 1024
     h1 = scipy.signal.blackmanharris(743)  # window size - 512
@@ -172,29 +174,23 @@ def full_feature_extraction(x, label_note=None):
     g = np.array([0.24, 0.6, 1])
     NumPerOctave = 48  # Number of bins per octave
 
+    Features_CFP = [ [CFP_filterbank(x, fr, fs, Hop, sub_h, fc, tc, g, NumPerOctave)] for sub_h in h  ]
+
     tfrL01, tfrLF1, tfrLQ1, f1, q1, t1, CenFreq1 = CFP_filterbank(x, fr, fs, Hop, h1, fc, tc, g, NumPerOctave)
-    tfrL02, tfrLF2, tfrLQ2, f2, q2, t2, CenFreq2 = CFP_filterbank(x, fr, fs, Hop, h2, fc, tc, g, NumPerOctave)
-    tfrL03, tfrLF3, tfrLQ3, f3, q3, t3, CenFreq3 = CFP_filterbank(x, fr, fs, Hop, h3, fc, tc, g, NumPerOctave)
+    # tfrL02, tfrLF2, tfrLQ2, f2, q2, t2, CenFreq2 = CFP_filterbank(x, fr, fs, Hop, h2, fc, tc, g, NumPerOctave)
+    # tfrL03, tfrLF3, tfrLQ3, f3, q3, t3, CenFreq3 = CFP_filterbank(x, fr, fs, Hop, h3, fc, tc, g, NumPerOctave)
+
+    Z=[]
+    ZN=[]
+    SN=[]
+    SIN=[]
+
+    for Feature in Features_CFP:
+
+
+
     Z1 = tfrLF1 * tfrLQ1
     ZN1 = (Z1 - np.mean(Z1)) / np.std(Z1)
-
-    from matplotlib.pyplot import figure
-    figure(num=None, figsize=(8, 6), dpi=80, facecolor='w', edgecolor='k')
-
-    # plt.subplot(6, 1, 1)
-    # plt.imshow(tfrL03)
-    # plt.subplot(6, 1, 2)
-    # plt.imshow(tfrLF1)
-    # plt.subplot(6, 1, 3)
-    # plt.imshow(tfrLQ1)
-    # plt.subplot(6, 1, 4)
-    # plt.imshow(Z1)
-    # H, P = librosa.decompose.hpss(tfrLF1, kernel_size=(5, 10))
-    # plt.subplot(6, 1, 5)
-    # plt.imshow(H)
-    # plt.subplot(6, 1, 6)
-    # plt.imshow(P)
-    # plt.show()
 
 
     # Z2 = tfrLF2 * tfrLQ2
@@ -207,24 +203,10 @@ def full_feature_extraction(x, label_note=None):
     SIN1 = gen_spectral_flux(tfrL01, invert=True, norm=True)
     # SIN2 = gen_spectral_flux(tfrL02, invert=True, norm=True)
     # SIN3 = gen_spectral_flux(tfrL03, invert=True, norm=True)
-    # print(Z1.shape)
-    # print(SN1.shape)
-    # print(SIN1.shape)
     # SN = np.concatenate((SN1, SN2, SN3), axis=0) #(522, frames)
     # SIN = np.concatenate((SIN1, SIN2, SIN3), axis=0) #(522, frames)
     # ZN = np.concatenate((ZN1, ZN2, ZN3), axis=0) #(522, frames)
 
-    # fig, ax = plt.subplots(6, 1, figsize=(8, 6))
-    # ax[0].imshow(tfrL03[:,:int(tfrL03.shape[1]/2)], aspect="auto")
-    # ax[1].imshow(SIN1[:,:int(tfrL03.shape[1]/2)], aspect="auto")
-    # H, P = librosa.decompose.hpss(abs(SIN1), kernel_size=(2, 40))
-    # ax[2].imshow(P[:,:int(tfrL03.shape[1]/2)], aspect="auto")
-    # ax[3].imshow(SN1[:,:int(tfrL03.shape[1]/2)], aspect="auto")
-    # H, P = librosa.decompose.hpss(abs(SN1), kernel_size=(2, 40))
-    # ax[4].imshow(P[:,:int(tfrL03.shape[1]/2)], aspect="auto")
-    # ax[5].plot(label_note[:int(len(label_note)/2)])
-    # plt.xlim(xmin=0, xmax=int(tfrL03.shape[1]/2))
-    # plt.show()
 
     SIN1_H, SIN1_P = librosa.decompose.hpss(abs(SIN1), kernel_size=(2, 40))
     SN1_H, SN1_P = librosa.decompose.hpss(abs(SN1), kernel_size=(2, 40))
@@ -463,29 +445,7 @@ def librosa_HPSS(stft, mask=False):
 
 
 if __name__ == "__main__":
-    #    melody_extraction(infile, outfile)
 
-    #    infile = 'opera_fem4.wav'
-    #    outfile = 'opera_fem4'
-    #    result = melody_extraction(infile, outfile)
-    #    plt.figure(1)
-    #    plt.plot(result[:,0],result[:,1])
-
-    # parser = argparse.ArgumentParser(
-    #     description="Melody extraction")
-    # parser.add_argument("InFile", type=str)
-    # #parser.add_argument("OutFile", type=str)
-    # parser.add_argument("OutFile_FEAT", type=str)
-    # parser.add_argument("OutFile_Z", type=str)
-    # parser.add_argument("OutFile_CF", type=str)
-    # parser.add_argument("OutFile_P", type=str)
-    # #parser.add_argument("OutFile_T", type=str)
-    # #parser.add_argument("OutFile_F", type=str)
-    # #parser.add_argument("OutFile_S", type=str)
-    #AA
-    # args = parser.parse_args()
-    # melody_extraction(args.InFile, args.OutFile_P)
-    # output_feature_extraction(args.InFile, args.OutFile_FEAT, args.OutFile_Z, args.OutFile_CF)
     test_wav_dir = "data/test/EvaluationFramework_ISMIR2014/DATASET"
     test_tar_dir = "data/test/Process_data_S1W743HP"
 

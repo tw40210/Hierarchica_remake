@@ -6,6 +6,7 @@ import librosa
 import argparse
 import hparam
 import matplotlib.pyplot as plt
+from matplotlib.pyplot import MultipleLocator
 from typing import Dict, List
 import os
 import torch
@@ -422,7 +423,7 @@ def testset_evaluation(path, f_path, model=None, writer_in=None, timestep=None, 
         est_smooth_label_sec_off = np.array(est_smooth_label_sec_off)
 
         # ===== pitch trace
-        est_pitch = interval2pitch_in_note(est_intervals, wav_path)
+        est_pitch = interval2pitch_in_note(est_intervals, wavfile= wav_path)
 
         gt_interval_array = onoffarray2interval(gt_label_sec_on, gt_label_sec_off)
         gt_notes = gt_pitch_in_note(gt_interval_array, label_pitch)
@@ -792,6 +793,22 @@ def gt_pitch_in_note(intervals, pitch_label, time_resolution=0.02):
     return np.array(gt_pitch)
 
 
+def freq2octal(_f0, pitch_steps):
+    octal_f0=[]
+    for f0 in _f0:
+        if f0<6:
+            octal_f0.append(0)
+            continue
+        for idx in range(len(pitch_steps)-2):
+            if pitch_steps[idx+1] >f0:
+                a = pitch_steps[idx]
+                b = pitch_steps[idx+1]
+                octal_f0.append(((f0 -pitch_steps[idx]) /(pitch_steps[idx+1]-pitch_steps[idx]) + idx))
+                break
+
+    return octal_f0
+
+
 def interval2pitch_in_note(interval, wavfile=None, signal=None, signal_only=False, sr=44100, second_length=200):
     pitch_steps = get_pitch_steps()
 
@@ -799,7 +816,7 @@ def interval2pitch_in_note(interval, wavfile=None, signal=None, signal_only=Fals
 
     pitch_midi_list = []
 
-    if not wavfile and not signal_only:
+    if wavfile and not signal_only:
         y, sr = librosa.load(wavfile, sr=sr, dtype="double")
     elif signal_only:
         y = signal
@@ -810,6 +827,15 @@ def interval2pitch_in_note(interval, wavfile=None, signal=None, signal_only=Fals
 
     _f0, t = pw.dio(y, sr)
 
+    octal_f0 = np.array(freq2octal(_f0, pitch_steps))
+
+    y_major_locator = MultipleLocator(1)
+
+    ax = plt.gca()
+    ax.yaxis.set_major_locator(y_major_locator)
+    plt.ylim(bottom=octal_f0[octal_f0 != 0].min(), top= octal_f0[octal_f0 != 0].max())
+    plt.plot(octal_f0)
+    plt.show()
     if len(interval)>0:
         assert interval[-1][1] * second_length <= len(_f0)
     for idx, note in enumerate(interval):
@@ -966,19 +992,19 @@ def plot_note(gt_interval_array, gt_notes, est_intervals, est_pitch):
 
 if __name__ == '__main__':
     path = "data/test/EvaluationFramework_ISMIR2014/DATASET"
-    f_path = "data/test/Process_data/FEAT"
+    f_path = "data/test/Process_data_S1W743HP/FEAT"
 
     onset = [0.1, 0.256, 0.279, 0.336, 0.469, 0.53]
     offset = [0.01, 0.23, 0.266, 0.267, 0.39, 0.4]
 
-    model = get_Resnet().to(device)
-    model.load_state_dict(torch.load("standard_checkpoint/960_1030perform077.pth"))
+    model = get_Resnet(channel=hparam.FEAT_channel).to(device)
+    model.load_state_dict(torch.load("checkpoint/1227_748HP.pth"))
     print("load OK")
 
 
-    # testset_evaluation(path, f_path, model=model)
-
-    testsample_path = hparam.testsample_path
-    testsample_f_path = hparam.testsample_f_path
-    # testset_evaluation(testsample_path, testsample_f_path, model=model)
-    whole_song_sampletest(testsample_path, testsample_f_path, model=model)
+    testset_evaluation(path, f_path, model=model, is_plot=True, channel=hparam.FEAT_channel)
+    #
+    # testsample_path = hparam.testsample_path
+    # testsample_f_path = hparam.testsample_f_path
+    # # testset_evaluation(testsample_path, testsample_f_path, model=model)
+    # whole_song_sampletest(testsample_path, testsample_f_path, model=model)
