@@ -20,6 +20,7 @@ import crepe
 
 dir = "data/train/train_extension_Process_data/FEAT/"
 
+
 for file in os.listdir(dir):
     if ".wav" not in file :
         os.rename(dir+file, dir+file[:-9]+".wav"+file[-9:])

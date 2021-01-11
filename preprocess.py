@@ -205,6 +205,7 @@ def full_feature_extraction(x, window_size, label_note=None):
     return new_SN_SIN_ZN
 
 
+
 def gen_spectral_flux(S, invert=False, norm=True):
     flux = np.diff(S)
     first_col = np.zeros((S.shape[0], 1))
