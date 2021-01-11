@@ -6,6 +6,7 @@ import librosa
 import argparse
 import hparam
 import matplotlib.pyplot as plt
+from matplotlib.pyplot import MultipleLocator
 from typing import Dict, List
 import os
 import torch
@@ -422,7 +423,7 @@ def testset_evaluation(path, f_path, model=None, writer_in=None, timestep=None, 
         est_smooth_label_sec_off = np.array(est_smooth_label_sec_off)
 
         # ===== pitch trace
-        est_pitch = interval2pitch_in_note(est_intervals, wav_path)
+        est_pitch = interval2pitch_in_note(est_intervals, wavfile= wav_path)
 
         gt_interval_array = onoffarray2interval(gt_label_sec_on, gt_label_sec_off)
         gt_notes = gt_pitch_in_note(gt_interval_array, label_pitch)
@@ -452,7 +453,13 @@ def testset_evaluation(path, f_path, model=None, writer_in=None, timestep=None, 
     #
     # writer.add_scalars(f"scalar\\onoff_F1", {'on_F1': sum_on_F1 / count, 'off_F1': sum_off_F1 / count}, timestep)
 
-def signal_sampletest_(input_x, model=None, writer_in=None, timestep=None):
+def rawout2interval_picth(record, signal, sr):
+    est_intervals, _, _, _, _, _ = Smooth_sdt6(record)
+
+    est_pitch = interval2pitch_in_note(est_intervals, signal = signal, signal_only=True, sr=sr)
+    return est_intervals, est_pitch
+
+def signal_sampletest_stream(input_x, past_buffer, model=None, writer_in=None, timestep=None, channel=hparam.FEAT_channel):
     if not model:
         model = get_Resnet()
     if not writer_in:
@@ -467,22 +474,24 @@ def signal_sampletest_(input_x, model=None, writer_in=None, timestep=None):
     count = 0
 
     record = []
+    future_buffersize = hparam.FEAT_futurepad
+    past_buffersize = hparam.FEAT_pastpad
 
     features_full = input_x
 
     # cut muted tail from feature
     # features_full = features_full[:, :label_note.shape[0]]
     # pad 9 zero steps in both head and tail
-    zero_pad = np.zeros((features_full.shape[0], 9))
-    features_full = np.concatenate((zero_pad, features_full), axis=1)
-    features_full = np.concatenate((features_full, zero_pad), axis=1)
+    assert past_buffer.shape == (features_full.shape[0], past_buffersize+future_buffersize)
+    padding = past_buffer
+    features_full = np.concatenate((padding, features_full), axis=1) # only do past padding
     features_full = abs(features_full)
     features_full = np.power(features_full / features_full.max(), hparam.gamma_mu)  # normalize &gamma compression
 
     for test_step in range(features_full.shape[1] - 18):
         curr_clip = features_full[:, test_step:test_step + 19]
         curr_clip = torch.from_numpy(curr_clip)
-        curr_clip = curr_clip.view(9, 174, -1).float()
+        curr_clip = curr_clip.view(channel, 174, -1).float()
         curr_clip = curr_clip.unsqueeze(0)
         curr_clip = curr_clip.to(device)
         model = model.to(device)
@@ -496,8 +505,9 @@ def signal_sampletest_(input_x, model=None, writer_in=None, timestep=None):
         count += 1
 
     record = np.array(record)
+    furture_buffer = features_full[:, - (past_buffersize + future_buffersize):]
 
-    return record
+    return record, furture_buffer
 
 
 
@@ -783,24 +793,66 @@ def gt_pitch_in_note(intervals, pitch_label, time_resolution=0.02):
     return np.array(gt_pitch)
 
 
-def interval2pitch_in_note(interval, wavfile, sr=44100, second_length=200):
+def freq2octal(_f0, pitch_steps):
+    octal_f0=[]
+    for f0 in _f0:
+        if f0<6:
+            octal_f0.append(0)
+            continue
+        for idx in range(len(pitch_steps)-2):
+            if pitch_steps[idx+1] >f0:
+                a = pitch_steps[idx]
+                b = pitch_steps[idx+1]
+                octal_f0.append(((f0 -pitch_steps[idx]) /(pitch_steps[idx+1]-pitch_steps[idx]) + idx))
+                break
+
+    return octal_f0
+
+
+def interval2pitch_in_note(interval, wavfile=None, signal=None, signal_only=False, sr=44100, second_length=200):
     pitch_steps = get_pitch_steps()
 
     pitches = []
 
     pitch_midi_list = []
-    y, sr = librosa.load(wavfile, sr=sr, dtype="double")
+
+    if wavfile and not signal_only:
+        y, sr = librosa.load(wavfile, sr=sr, dtype="double")
+    elif signal_only:
+        y = signal
+    else:
+        print("wrong parameters!")
+        assert False
+
 
     _f0, t = pw.dio(y, sr)
+
+
+    octal_f0 = np.array(freq2octal(_f0, pitch_steps))
+
+    y_major_locator = MultipleLocator(1)
+
+    ax = plt.gca()
+    ax.yaxis.set_major_locator(y_major_locator)
+    plt.ylim(bottom=octal_f0[octal_f0 != 0].min(), top= octal_f0[octal_f0 != 0].max())
+    plt.plot(octal_f0)
+    plt.show()
 
     if len(interval)>0:
         assert interval[-1][1] * second_length <= len(_f0)
     for idx, note in enumerate(interval):
+        if _f0.max()<1:
+            pitch_midi_list.append(0)
+            continue
+
         pitches = _f0[int(note[0] * second_length):int(note[1] * second_length)]
         length = len(pitches)
         pitches = pitches[int(length / 2):-int(length / 4)]
         pitches = pitches[pitches!=0]
         pitch_count=1.2
+
+        # if pitches
+        #
         while(pitches.size <1):
             pitches = _f0[int(note[0] * second_length):int(note[1] * second_length)]
             pitches = pitches[int(length / (2*pitch_count)):-int(length / (4*pitch_count))]
@@ -942,19 +994,19 @@ def plot_note(gt_interval_array, gt_notes, est_intervals, est_pitch):
 
 if __name__ == '__main__':
     path = "data/test/EvaluationFramework_ISMIR2014/DATASET"
-    f_path = "data/test/Process_data/FEAT"
+    f_path = "data/test/Process_data_S1W743HP/FEAT"
 
     onset = [0.1, 0.256, 0.279, 0.336, 0.469, 0.53]
     offset = [0.01, 0.23, 0.266, 0.267, 0.39, 0.4]
 
-    model = get_Resnet().to(device)
-    model.load_state_dict(torch.load("standard_checkpoint/960_1030perform077.pth"))
+    model = get_Resnet(channel=hparam.FEAT_channel).to(device)
+    model.load_state_dict(torch.load("checkpoint/1227_748HP.pth"))
     print("load OK")
 
 
-    # testset_evaluation(path, f_path, model=model)
-
-    testsample_path = hparam.testsample_path
-    testsample_f_path = hparam.testsample_f_path
-    # testset_evaluation(testsample_path, testsample_f_path, model=model)
-    whole_song_sampletest(testsample_path, testsample_f_path, model=model)
+    testset_evaluation(path, f_path, model=model, is_plot=True, channel=hparam.FEAT_channel)
+    #
+    # testsample_path = hparam.testsample_path
+    # testsample_f_path = hparam.testsample_f_path
+    # # testset_evaluation(testsample_path, testsample_f_path, model=model)
+    # whole_song_sampletest(testsample_path, testsample_f_path, model=model)
