@@ -400,33 +400,19 @@ if __name__ == "__main__":
 
     test_wav_dir = "data/test/EvaluationFramework_ISMIR2014/DATASET"
 
-    test_tar_dir = "data/test/Process_data_S3_refactor"
+    test_tar_dir = "data/test/Process_data_S3_TEST"
 
 
     testsample_wav_dir = "data/test_sample/wav_label"
-    testsample_tar_dir = "data/test_sample/Process_data_S1W186"
+    testsample_tar_dir = "data/test_sample/Process_data_S3_TEST"
 
     train_wav_dir = "data/train/train_extension"
-    train_tar_dir = "data/train/train_extension_S1W186"
+    train_tar_dir = "data/train/train_extension_S3_TEST"
 
     os.makedirs(test_tar_dir, exist_ok=True)
     os.makedirs(testsample_tar_dir, exist_ok=True)
     os.makedirs(train_tar_dir, exist_ok=True)
 
-
-    wav_dir = test_wav_dir
-    tar_dir = test_tar_dir
-    for wavfile in tqdm(os.listdir(wav_dir)) :
-        if ".wav" in wavfile and not os.path.isfile(os.path.join(tar_dir,"FEAT" ,  f"{wavfile[:]}_FEAT.npy")):
-            InFile = os.path.join(wav_dir, wavfile)
-            os.makedirs(os.path.join(tar_dir,"FEAT"), exist_ok=True)
-            OutFile_FEAT = os.path.join(tar_dir,"FEAT" ,  f"{wavfile[:]}_FEAT.npy")
-            os.makedirs(os.path.join(tar_dir, "Z"), exist_ok=True)
-            OutFile_Z = os.path.join(tar_dir, "Z", f"{wavfile[:]}_Z.npy")
-            os.makedirs(os.path.join(tar_dir, "CF"), exist_ok=True)
-            OutFile_CF = os.path.join(tar_dir, "CF", f"{wavfile[:]}_CF.npy")
-            os.makedirs(os.path.join(tar_dir, "P"), exist_ok=True)
-            OutFile_P = os.path.join(tar_dir, "P", f"{wavfile[:]}_P.npy")
 
 
     for wav_dir, tar_dir in [(test_wav_dir, test_tar_dir),(testsample_wav_dir, testsample_tar_dir),(train_wav_dir, train_tar_dir)]:
@@ -456,8 +442,8 @@ if __name__ == "__main__":
                 label_note = np.array(label_note)[:,2]
 
 
-            output_feature_extraction(x, OutFile_FEAT, OutFile_Z, OutFile_CF, label_note=label_note, window_size=[743, 372, 186])
-            print(InFile)
+                output_feature_extraction(x, OutFile_FEAT, OutFile_Z, OutFile_CF, label_note=label_note, window_size=[743, 372, 186])
+                print(InFile)
 
 
 
