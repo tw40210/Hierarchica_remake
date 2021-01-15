@@ -3,7 +3,7 @@
 # import torch
 import os
 import numpy as np
-# from utils import read_notefile, note2timestep
+from utils import read_notefile, note2timestep, interval2pitch_in_note
 import hparam
 import random
 import matplotlib.pyplot as plt
@@ -18,6 +18,16 @@ import crepe
 # !/usr/bin/python
 # -*- coding: UTF-8 -*-
 
+
+interval2pitch_in_note([], "wav_check/10.wav", is_plot=True)
+
+
+
+
+
+
+
+##=================
 dir = "data/train/train_extension_Process_data/FEAT/"
 
 

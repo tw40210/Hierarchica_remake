@@ -19,13 +19,30 @@ import pygame.mixer
 from time import sleep
 import threading
 
+
+import pygame
+import pygame.mixer
+from time import sleep
+
+pygame.init()
+pygame.mixer.init()
+
+matplotlib.use('TKAgg',warn=False, force=True)
+print( "Switched to:",matplotlib.get_backend())
+CHUNK=32000
+FORMAT = pyaudio.paFloat32
+CHANNELS = 1
+RATE = 16000
+
+SHOOT_SOUND = pygame.mixer.Sound('data/bass.wav')
+SHOOT_SOUND.set_volume(0.05)
+
 global mide_file
 global play_lock
-
+load_flag=False
 
 def play_midi():
-    SHOOT_SOUND = pygame.mixer.Sound('data/bass.wav')
-    SHOOT_SOUND.set_volume(0.05)
+
     global play_lock
     while True:
         if play_lock:
@@ -38,6 +55,21 @@ def play_midi():
             print("Done!")
         else:
             sleep(0.02)
+
+def waitBuffer(minBuffer):
+    while stream.get_read_available() < minBuffer:
+        print(stream.get_read_available())
+        sleep(0.01)
+
+
+def clearBuffer(stream, CHUNK):
+
+    while stream.get_read_available()> 0:
+
+        stream.read(CHUNK)
+
+    # stream.read( int(CHUNK*0.8)) # rest 0.2 length buffer
+
 
 def convert_seconds_to_quarter(time_in_sec, bpm):
     quarter_per_second = (bpm/60)
@@ -54,10 +86,11 @@ def create_MIDI(interval, pitches):
     pitch = 60
     duration = 1
     volume = 100
-    bpm = 600
+    bpm = 60
     MyMIDI.addTrackName(track, time, "Sample Track")
     MyMIDI.addTempo(track, time, bpm)
 
+    delay=0
 
     for idx, note_duration in enumerate(interval):
         time = convert_seconds_to_quarter(note_duration[0] ,bpm)
@@ -65,16 +98,17 @@ def create_MIDI(interval, pitches):
         pitch = int(pitches[idx])
         MyMIDI.addNote(track, channel, pitch, time, duration, volume)
 
-    duration = convert_seconds_to_quarter(2.5, bpm)
+    duration = convert_seconds_to_quarter(int(CHUNK/RATE)+delay, bpm)
+    print("duration ", duration)
     MyMIDI.addNote(track, channel, 30, 0, duration, volume)
     if len(interval)>0:
         time = convert_seconds_to_quarter(interval[-1][1], bpm)
-        duration = convert_seconds_to_quarter(2 - interval[-1][1], bpm)
+        duration = convert_seconds_to_quarter(int(CHUNK/RATE)+delay - interval[-1][1], bpm)
         MyMIDI.addNote(track, channel, 0, time, duration, 0)
 
     else:
         time=0
-        duration= convert_seconds_to_quarter(2, bpm)
+        duration= convert_seconds_to_quarter(int(CHUNK/RATE)+delay, bpm)
         MyMIDI.addNote(track, channel, 0, time, duration, 0)
 
 
@@ -106,19 +140,6 @@ def create_MIDI(interval, pitches):
 #     return (out_data_byte, pyaudio.paContinue)
 
 
-import pygame
-import pygame.mixer
-from time import sleep
-
-pygame.init()
-pygame.mixer.init()
-
-matplotlib.use('TKAgg',warn=False, force=True)
-print( "Switched to:",matplotlib.get_backend())
-CHUNK=32000
-FORMAT = pyaudio.paFloat32
-CHANNELS = 1
-RATE = 16000
 
 
 
@@ -130,7 +151,7 @@ stream = p.open(
     rate = RATE,
     input =True,
     output = True,
-    frames_per_buffer = CHUNK,
+    frames_per_buffer = int(CHUNK*0.4),
     # stream_callback = callbackln
 )
 
@@ -140,11 +161,12 @@ count=0
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 model = get_Resnet(hparam.FEAT_channel).to(device)
-model.load_state_dict(torch.load("checkpoint/1227_748HP.pth"))
+model.load_state_dict(torch.load("standard_checkpoint/960_1030perform077.pth"))
 print("load OK")
+
 buffer = np.zeros((hparam.FEAT_freqbin_num*hparam.FEAT_channel, hparam.FEAT_pastpad+hparam.FEAT_futurepad))
 wavform_buffer = np.zeros((int(RATE*hparam.timestep*hparam.FEAT_futurepad)))
-
+print("keyin anython to start")
 input() #pause
 stream.start_stream()
 t = threading.Thread(target=play_midi)
@@ -153,6 +175,13 @@ midi_playing=False
 while True:
 
     count+=1
+
+    if count<2:
+        clearBuffer(stream, CHUNK)
+        # waitBuffer(int(CHUNK * 0.2))
+
+
+    print("buffer to read: ", stream.get_read_available())
     data = stream.read(CHUNK)
     start = time.time()
     data_float = np.fromstring(data, 'Float32')
@@ -162,12 +191,13 @@ while True:
 
 
 
-    SN_SIN_ZN, Z1, CenFreq1 = output_feature_extraction_nosave(data_float)
+    SN_SIN_ZN = output_feature_extraction_nosave(data_float, window_size=[768, 372, 186])
     record, buffer = signal_sampletest_stream(SN_SIN_ZN,past_buffer=buffer, model=model, channel=hparam.FEAT_channel)
     est_intervals, _, _, _, _, _ = Smooth_sdt6(record)
 
+    padding_data_float = data_float[int(-RATE*hparam.timestep*(hparam.FEAT_pastpad)):]
     data_float = np.concatenate((wavform_buffer, data_float[:int(-RATE*hparam.timestep*(hparam.FEAT_pastpad))]), axis=0) # adjust wav signal to match label
-    wavform_buffer = data_float[int(-RATE * hparam.timestep * hparam.FEAT_futurepad):]
+    wavform_buffer = padding_data_float
     librosa.output.write_wav(f"wav_check/{count}.wav", data_float, sr=RATE)
     interval, pitches = rawout2interval_picth(record, data_float, sr=RATE)
 
@@ -176,21 +206,37 @@ while True:
 
     print(count)
 
+    # if midi_playing:
+    #
+    #     # t.join()
+    #     # while play_lock:
+    #     #     sleep(0.01)
+    #     play_lock = True
+    #
+    # else:
+    #     play_lock = True
+    #     t.start()
+
+    # midi_playing =True
+
+    while True:
+
+        # if not load_flag:
+        #     pygame.mixer.music.load(mide_file)
+        #     load_flag=True
 
 
-    if midi_playing:
-        # t.join()
-        print(play_lock)
-        while play_lock:
+        if not pygame.mixer.music.get_busy():
+            SHOOT_SOUND.play()
+            pygame.mixer.music.load(mide_file)
+            pygame.mixer.music.play()
+            load_flag=False
+            break
+
+        else:
+            print("Waiting")
             sleep(0.01)
-        play_lock = True
 
-    else:
-        play_lock = True
-        t.start()
-
-
-    midi_playing =True
 
 
     print(count)

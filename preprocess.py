@@ -383,12 +383,12 @@ def output_feature_extraction(x, outfile_feat, outfile_z, outfile_cf, label_note
 
     return SN_SIN_ZN
 
-def output_feature_extraction_nosave(x):
+def output_feature_extraction_nosave(x, window_size):
     print('Feature Extraction: Extracting Spectral Difference and CFP ...')
     # Z, t, f, CenFreq, tfrL0, tfrLF, tfrLQ = full_feature_extraction(infile)
-    SN_SIN_ZN, Z1, CenFreq1 = full_feature_extraction(x)
+    SN_SIN_ZN = full_feature_extraction(x, window_size)
 
-    return SN_SIN_ZN, Z1, CenFreq1
+    return SN_SIN_ZN
 
 def librosa_HPSS(stft, mask=False):
     H, P = librosa.decompose.hpss(stft, kernel_size=(9,9))

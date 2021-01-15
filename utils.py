@@ -809,7 +809,7 @@ def freq2octal(_f0, pitch_steps):
     return octal_f0
 
 
-def interval2pitch_in_note(interval, wavfile=None, signal=None, signal_only=False, sr=44100, second_length=200):
+def interval2pitch_in_note(interval, wavfile=None, signal=None, signal_only=False, sr=44100, second_length=200, is_plot=None):
     pitch_steps = get_pitch_steps()
 
     pitches = []
@@ -819,7 +819,7 @@ def interval2pitch_in_note(interval, wavfile=None, signal=None, signal_only=Fals
     if wavfile and not signal_only:
         y, sr = librosa.load(wavfile, sr=sr, dtype="double")
     elif signal_only:
-        y = signal
+        y = np.array(signal, dtype="double")
     else:
         print("wrong parameters!")
         assert False
@@ -830,13 +830,13 @@ def interval2pitch_in_note(interval, wavfile=None, signal=None, signal_only=Fals
 
     octal_f0 = np.array(freq2octal(_f0, pitch_steps))
 
-    y_major_locator = MultipleLocator(1)
-
-    ax = plt.gca()
-    ax.yaxis.set_major_locator(y_major_locator)
-    plt.ylim(bottom=octal_f0[octal_f0 != 0].min(), top= octal_f0[octal_f0 != 0].max())
-    plt.plot(octal_f0)
-    plt.show()
+    if is_plot:
+        y_major_locator = MultipleLocator(1)
+        ax = plt.gca()
+        ax.yaxis.set_major_locator(y_major_locator)
+        plt.ylim(bottom=octal_f0[octal_f0 != 0].min(), top= octal_f0[octal_f0 != 0].max())
+        plt.plot(octal_f0)
+        plt.show()
 
     if len(interval)>0:
         assert interval[-1][1] * second_length <= len(_f0)
