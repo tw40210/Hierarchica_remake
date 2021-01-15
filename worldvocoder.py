@@ -77,7 +77,8 @@ def convert_seconds_to_quarter(time_in_sec, bpm):
     return time_in_quarter
 
 def create_MIDI(interval, pitches):
-
+    print("interval: ", interval)
+    print("pitches: ", pitches)
     memFile = BytesIO()
     MyMIDI = MIDIFile(1)
     track = 0
@@ -90,26 +91,26 @@ def create_MIDI(interval, pitches):
     MyMIDI.addTrackName(track, time, "Sample Track")
     MyMIDI.addTempo(track, time, bpm)
 
-    delay=0
+    delay=-0.3 # delay mainly by pygame load& play can't avoid so far because load will stop music
 
     for idx, note_duration in enumerate(interval):
         time = convert_seconds_to_quarter(note_duration[0] ,bpm)
         duration = convert_seconds_to_quarter(note_duration[1]- note_duration[0] ,bpm)
         pitch = int(pitches[idx])
+        print(" pitch: ", pitch)
         MyMIDI.addNote(track, channel, pitch, time, duration, volume)
 
     duration = convert_seconds_to_quarter(int(CHUNK/RATE)+delay, bpm)
-    print("duration ", duration)
     MyMIDI.addNote(track, channel, 30, 0, duration, volume)
-    if len(interval)>0:
-        time = convert_seconds_to_quarter(interval[-1][1], bpm)
-        duration = convert_seconds_to_quarter(int(CHUNK/RATE)+delay - interval[-1][1], bpm)
-        MyMIDI.addNote(track, channel, 0, time, duration, 0)
-
-    else:
-        time=0
-        duration= convert_seconds_to_quarter(int(CHUNK/RATE)+delay, bpm)
-        MyMIDI.addNote(track, channel, 0, time, duration, 0)
+    # if len(interval)>0:
+    #     time = convert_seconds_to_quarter(interval[-1][1], bpm)
+    #     duration = convert_seconds_to_quarter(int(CHUNK/RATE)+delay - interval[-1][1], bpm)
+    #     MyMIDI.addNote(track, channel, 0, time, duration, 0)
+    #
+    # else:
+    #     time=0
+    #     duration= convert_seconds_to_quarter(int(CHUNK/RATE)+delay, bpm)
+    #     MyMIDI.addNote(track, channel, 0, time, duration, 0)
 
 
     # WRITE A SCALE
@@ -151,7 +152,7 @@ stream = p.open(
     rate = RATE,
     input =True,
     output = True,
-    frames_per_buffer = int(CHUNK*0.4),
+    frames_per_buffer = int(CHUNK*0.5),
     # stream_callback = callbackln
 )
 
@@ -172,11 +173,12 @@ stream.start_stream()
 t = threading.Thread(target=play_midi)
 midi_playing=False
 
+music_start=time.time()
 while True:
 
     count+=1
 
-    if count<2:
+    if count<3:
         clearBuffer(stream, CHUNK)
         # waitBuffer(int(CHUNK * 0.2))
 
@@ -226,10 +228,15 @@ while True:
         #     load_flag=True
 
 
-        if not pygame.mixer.music.get_busy():
+        if not pygame.mixer.music.get_busy(): #
+
             SHOOT_SOUND.play()
+
             pygame.mixer.music.load(mide_file)
             pygame.mixer.music.play()
+            print("music_dur: ", time.time() - music_start)
+
+            music_start = time.time()
             load_flag=False
             break
 

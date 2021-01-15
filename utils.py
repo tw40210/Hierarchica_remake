@@ -808,6 +808,21 @@ def freq2octal(_f0, pitch_steps):
 
     return octal_f0
 
+def smoothPitch(pitch_midi_list):
+    pitch_midi_list = np.array(pitch_midi_list)
+    print(" before smooth: ", pitch_midi_list)
+    std_pitch_step = (pitch_midi_list.sum() / pitch_midi_list.shape[0]) // 12
+
+    pitch_midi_list[0]= pitch_midi_list[0]%12+ std_pitch_step*12
+
+    for idx in range(len(pitch_midi_list) - 1):
+        if pitch_midi_list[idx + 1] - pitch_midi_list[idx] > 12:
+            pitch_midi_list[idx + 1]-=12
+        elif pitch_midi_list[idx + 1] - pitch_midi_list[idx] < -12:
+            pitch_midi_list[idx + 1] += 12
+
+    print(" after smooth: ", pitch_midi_list)
+    return pitch_midi_list
 
 def interval2pitch_in_note(interval, wavfile=None, signal=None, signal_only=False, sr=44100, second_length=200, is_plot=None):
     pitch_steps = get_pitch_steps()
@@ -878,7 +893,13 @@ def interval2pitch_in_note(interval, wavfile=None, signal=None, signal_only=Fals
 
         pitch_midi_list.append(pick_pitch(pitches, pitch_steps))
 
-    return np.array(pitch_midi_list)
+    # smooth pitch to avoid big gap
+
+    if len(pitch_midi_list)>0:
+        pitch_midi_list = smoothPitch(pitch_midi_list)
+
+
+    return pitch_midi_list
 
 
 def onoffarray2interval(onset_array, offset_array):
