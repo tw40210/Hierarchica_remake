@@ -77,8 +77,6 @@ def convert_seconds_to_quarter(time_in_sec, bpm):
     return time_in_quarter
 
 def create_MIDI(interval, pitches):
-    print("interval: ", interval)
-    print("pitches: ", pitches)
     memFile = BytesIO()
     MyMIDI = MIDIFile(1)
     track = 0
@@ -97,7 +95,6 @@ def create_MIDI(interval, pitches):
         time = convert_seconds_to_quarter(note_duration[0] ,bpm)
         duration = convert_seconds_to_quarter(note_duration[1]- note_duration[0] ,bpm)
         pitch = int(pitches[idx])
-        print(" pitch: ", pitch)
         MyMIDI.addNote(track, channel, pitch, time, duration, volume)
 
     duration = convert_seconds_to_quarter(int(CHUNK/RATE)+delay, bpm)
@@ -172,6 +169,7 @@ input() #pause
 stream.start_stream()
 t = threading.Thread(target=play_midi)
 midi_playing=False
+onstart_flag=False
 
 music_start=time.time()
 while True:
@@ -195,13 +193,13 @@ while True:
 
     SN_SIN_ZN = output_feature_extraction_nosave(data_float, window_size=[768, 372, 186])
     record, buffer = signal_sampletest_stream(SN_SIN_ZN,past_buffer=buffer, model=model, channel=hparam.FEAT_channel)
-    est_intervals, _, _, _, _, _ = Smooth_sdt6(record)
+    # est_intervals, _, _, _, _, _, onstart_flag = Smooth_sdt6(record, realtime=True, onstart_flag= onstart_flag)
 
     padding_data_float = data_float[int(-RATE*hparam.timestep*(hparam.FEAT_pastpad)):]
     data_float = np.concatenate((wavform_buffer, data_float[:int(-RATE*hparam.timestep*(hparam.FEAT_pastpad))]), axis=0) # adjust wav signal to match label
     wavform_buffer = padding_data_float
     librosa.output.write_wav(f"wav_check/{count}.wav", data_float, sr=RATE)
-    interval, pitches = rawout2interval_picth(record, data_float, sr=RATE)
+    interval, pitches, onstart_flag = rawout2interval_picth(record, data_float, sr=RATE, onstart_flag=onstart_flag)
 
 
     mide_file = create_MIDI(interval, pitches)
@@ -241,7 +239,6 @@ while True:
             break
 
         else:
-            print("Waiting")
             sleep(0.01)
 
 

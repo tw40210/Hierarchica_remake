@@ -112,8 +112,10 @@ def find_first_bellow_thres(aSeq):
     return first_bellow_frame
 
 
-def Smooth_sdt6(predict_sdt, threshold=0.20):
+def Smooth_sdt6(predict_sdt, threshold=0.20, realtime=False, onstart_flag=False):
     # predict shape: (time step, 3)
+
+
     Filter = np.ndarray(shape=(5,), dtype=float, buffer=np.array([0.25, 0.5, 1.0, 0.5, 0.25]))
     # Filter = np.ndarray(shape=(5,), dtype=float, buffer=np.array([1.0, 1.0, 1.0, 1.0, 1.0]))
     sSeq = []
@@ -141,15 +143,21 @@ def Smooth_sdt6(predict_sdt, threshold=0.20):
     # find peak of transition
     # peak time = frame*0.02+0.01
     onpeaks = []
-    if onSeq[0] > onSeq[1] and onSeq[0] > onSeq[2] and onSeq[0] > threshold:
+    if onstart_flag:
         onpeaks.append(0)
-    if onSeq[1] > onSeq[0] and onSeq[1] > onSeq[2] and onSeq[1] > onSeq[3] and onSeq[1] > threshold:
-        onpeaks.append(1)
+    else:
+        if onSeq[0] > onSeq[1] and onSeq[0] > onSeq[2] and onSeq[0] > threshold:
+            onpeaks.append(0)
+        if onSeq[1] > onSeq[0] and onSeq[1] > onSeq[2] and onSeq[1] > onSeq[3] and onSeq[1] > threshold:
+            onpeaks.append(1)
+
     for num in range(len(onSeq)):
         if num > 1 and num < len(onSeq) - 2:
             if onSeq[num] > onSeq[num - 1] and onSeq[num] > onSeq[num - 2] and onSeq[num] > onSeq[num + 1] and onSeq[
                 num] > onSeq[num + 2] and onSeq[num] > threshold:
                 onpeaks.append(num)
+
+
 
     if onSeq[-1] > onSeq[-2] and onSeq[-1] > onSeq[-3] and onSeq[-1] > threshold:
         onpeaks.append(len(onSeq) - 1)
@@ -175,29 +183,46 @@ def Smooth_sdt6(predict_sdt, threshold=0.20):
     # determine onset/offset by silence, duration
     # intervalSD = [0,1,0,1,...], 0:silence, 1:duration
     if len(onpeaks) == 0 or len(offpeaks) == 0:
-        return [], [], [], [], [], 0
+
+        if realtime:
+            return [], [], [], [], [], 0, onstart_flag
+        else:
+            return [], [], [], [], [], 0
 
     Tpeaks = onpeaks + offpeaks
     Tpeaks.sort()
 
-    intervalSD = [0]
+    intervalSD = []
+    current_sd = 0 if sum(sSeq[0:Tpeaks[0]]) > sum(dSeq[0:Tpeaks[0]]) else 1
+    intervalSD.append(current_sd)
+
 
     for i in range(len(Tpeaks) - 1):
         current_sd = 0 if sum(sSeq[Tpeaks[i]:Tpeaks[i + 1]]) > sum(dSeq[Tpeaks[i]:Tpeaks[i + 1]]) else 1
         intervalSD.append(current_sd)
-    intervalSD.append(0)
+    current_sd = 0 if sum(sSeq[Tpeaks[-1]:]) > sum(dSeq[Tpeaks[-1]:]) else 1
+    intervalSD.append(current_sd)
 
     MissingT = 0
     AddingT = 0
     est_intervals = []
     t_idx = 0
-    while t_idx < len(Tpeaks) - 2:
+    while t_idx < len(Tpeaks) - 1:
 
         if t_idx == 0 and Tpeaks[t_idx] not in onpeaks:
             if intervalSD[0] == 1 and intervalSD[1] == 0:
                 onset_inserted = find_first_bellow_thres(sSeq[0:Tpeaks[0]])
                 if onset_inserted != Tpeaks[0] and Tpeaks > onset_inserted + 1:
                     est_intervals.append([0.02 * onset_inserted + 0.01, 0.02 * Tpeaks[0] + 0.01])
+                    AddingT += 1
+                else:
+                    MissingT += 1
+            t_idx += 1
+        elif t_idx == 0 and onstart_flag and Tpeaks[t_idx +1] not in offpeaks:
+            if intervalSD[0] == 1 and intervalSD[1] == 0:
+                offset_inserted = find_first_bellow_thres(dSeq[0:Tpeaks[t_idx+1]])
+                if offset_inserted != Tpeaks[0] and Tpeaks > offset_inserted + 1:
+                    est_intervals.append([0.02 * offset_inserted + 0.01, 0.02 * Tpeaks[0] + 0.01])
                     AddingT += 1
                 else:
                     MissingT += 1
@@ -232,8 +257,25 @@ def Smooth_sdt6(predict_sdt, threshold=0.20):
                     assert (onset_inserted < Tpeaks[t_idx])
                 else:
                     MissingT += 1
+            elif intervalSD[t_idx] == 1 and intervalSD[t_idx + 1] == 1 and Tpeaks[t_idx-1] in offpeaks:
+                onset_inserted = find_first_bellow_thres(sSeq[Tpeaks[t_idx - 1]:Tpeaks[t_idx]]) + Tpeaks[t_idx - 1]
+                if onset_inserted != Tpeaks[t_idx - 1] and Tpeaks[t_idx] > onset_inserted + 1:
+                    est_intervals.append([0.02 * onset_inserted + 0.01, 0.02 * Tpeaks[t_idx] + 0.01])
+                    AddingT += 1
+                    assert (onset_inserted < Tpeaks[t_idx])
+                else:
+                    MissingT += 1
 
             t_idx += 1
+
+    if realtime:
+        if len(Tpeaks)>1:
+            if Tpeaks[-1] in onpeaks and intervalSD[-1]==1:
+                est_intervals.append([0.02 * Tpeaks[-1], 2])
+                onstart_flag=True
+
+            else:
+                onstart_flag = False
 
     # print("Missing ratio: ", MissingT/len(est_intervals))
     print("Conflict ratio: ", MissingT / (len(Tpeaks) + AddingT))
@@ -244,10 +286,9 @@ def Smooth_sdt6(predict_sdt, threshold=0.20):
     onSeq_np = np.array(onSeq, dtype=float)
     offSeq_np = np.array(offSeq, dtype=float)
 
-    # print(np.ndarray(shape=(len(est_intervals), 2), dtype=float,
-    #                   buffer=np.array(est_intervals)),"\n", sSeq_np,"\n", dSeq_np,"\n", onSeq_np,"\n", offSeq_np,"\n", MissingT / (
-    #                len(Tpeaks) + AddingT))
-    # return np.ndarray(shape=(len(onset_times),), dtype=float, buffer=np.array(onset_times)), np.ndarray(shape=(len(offset_times),), dtype=float, buffer=np.array(offset_times)), sSeq_np, dSeq_np, tSeq_np
+    if realtime:
+        return np.array(est_intervals, dtype=float), sSeq_np, dSeq_np, onSeq_np, offSeq_np, MissingT / (len(Tpeaks) + AddingT),  onstart_flag
+
     return np.array(est_intervals, dtype=float), sSeq_np, dSeq_np, onSeq_np, offSeq_np, MissingT / (
                 len(Tpeaks) + AddingT)
 
@@ -453,11 +494,11 @@ def testset_evaluation(path, f_path, model=None, writer_in=None, timestep=None, 
     #
     # writer.add_scalars(f"scalar\\onoff_F1", {'on_F1': sum_on_F1 / count, 'off_F1': sum_off_F1 / count}, timestep)
 
-def rawout2interval_picth(record, signal, sr):
-    est_intervals, _, _, _, _, _ = Smooth_sdt6(record)
+def rawout2interval_picth(record, signal, sr, onstart_flag):
+    est_intervals, _, _, _, _, _, onstart_flag  = Smooth_sdt6(record, realtime=True, onstart_flag= onstart_flag)
 
     est_pitch = interval2pitch_in_note(est_intervals, signal = signal, signal_only=True, sr=sr)
-    return est_intervals, est_pitch
+    return est_intervals, est_pitch, onstart_flag
 
 def signal_sampletest_stream(input_x, past_buffer, model=None, writer_in=None, timestep=None, channel=hparam.FEAT_channel):
     if not model:
