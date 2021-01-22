@@ -20,6 +20,7 @@ import pathlib
 import random
 import pyworld as pw
 
+
 # plt.switch_backend('agg')
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -100,8 +101,9 @@ def expand_onoff_label(label_note):
     return label_note
 
 
-def find_first_bellow_thres(aSeq):
+def find_first_bellow_thres(aSeq, on_insert):
     activate = False
+    transit_flag=False
     first_bellow_frame = 0
     for i in range(len(aSeq)):
         if aSeq[i] > 0.5:
@@ -109,12 +111,38 @@ def find_first_bellow_thres(aSeq):
         if activate and aSeq[i] < 0.5:
             first_bellow_frame = i
             break
-    return first_bellow_frame
+
+    if first_bellow_frame==0 and on_insert:
+        aSeq = np.array(aSeq)
+        if aSeq.mean()< 0.5:
+            transit_flag = True
+
+    elif first_bellow_frame==0 and not on_insert:
+        aSeq = np.array(aSeq)
+        if aSeq.mean()> 0.5:
+            transit_flag = True
 
 
-def Smooth_sdt6(predict_sdt, threshold=0.20, realtime=False, onstart_flag=False):
+
+    return first_bellow_frame, transit_flag
+
+def power_filter(seq, idx ,filter_size=3):
+    power=0
+    count=0
+    start_idx = idx - ((filter_size-1)//2)
+    if start_idx<0:
+        start_idx=0
+
+    for seq_idx in range(filter_size):
+        if start_idx+seq_idx<len(seq)-1:
+            power+= seq[start_idx+seq_idx]
+            count+=1
+
+    power /= count
+    return power
+
+def Smooth_sdt6(predict_sdt, threshold=0.20, realtime=False, onstart_flag=False, onSeqout=False):
     # predict shape: (time step, 3)
-
 
     Filter = np.ndarray(shape=(5,), dtype=float, buffer=np.array([0.25, 0.5, 1.0, 0.5, 0.25]))
     # Filter = np.ndarray(shape=(5,), dtype=float, buffer=np.array([1.0, 1.0, 1.0, 1.0, 1.0]))
@@ -122,6 +150,9 @@ def Smooth_sdt6(predict_sdt, threshold=0.20, realtime=False, onstart_flag=False)
     dSeq = []
     onSeq = []
     offSeq = []
+
+    if onSeqout:
+        onSeqout_Seq=[]
 
     for num in range(predict_sdt.shape[0]):
         if num > 1 and num < predict_sdt.shape[0] - 2:
@@ -135,6 +166,7 @@ def Smooth_sdt6(predict_sdt, threshold=0.20, realtime=False, onstart_flag=False)
             dSeq.append(predict_sdt[num][1])
             onSeq.append(predict_sdt[num][2])
             offSeq.append(predict_sdt[num][4])
+
 
     ##############################
     # Peak strategy
@@ -156,8 +188,6 @@ def Smooth_sdt6(predict_sdt, threshold=0.20, realtime=False, onstart_flag=False)
             if onSeq[num] > onSeq[num - 1] and onSeq[num] > onSeq[num - 2] and onSeq[num] > onSeq[num + 1] and onSeq[
                 num] > onSeq[num + 2] and onSeq[num] > threshold:
                 onpeaks.append(num)
-
-
 
     if onSeq[-1] > onSeq[-2] and onSeq[-1] > onSeq[-3] and onSeq[-1] > threshold:
         onpeaks.append(len(onSeq) - 1)
@@ -185,17 +215,37 @@ def Smooth_sdt6(predict_sdt, threshold=0.20, realtime=False, onstart_flag=False)
     if len(onpeaks) == 0 or len(offpeaks) == 0:
 
         if realtime:
-            return [], [], [], [], [], 0, onstart_flag
+            return [], [], [], [], [], 0, onstart_flag, onSeqout
         else:
             return [], [], [], [], [], 0
 
     Tpeaks = onpeaks + offpeaks
     Tpeaks.sort()
 
+    on_off_belong = []
+    skip_flag=False
+    for idx in range(len(Tpeaks)) :
+        if skip_flag:
+            skip_flag=False
+            continue
+
+        if Tpeaks[idx] in onpeaks and Tpeaks[idx] in offpeaks:
+            on_off_belong.append(0)
+            on_off_belong.append(1)
+            skip_flag=True
+
+        elif Tpeaks[idx] in onpeaks:
+            on_off_belong.append(1)
+        elif Tpeaks[idx] in offpeaks:
+            on_off_belong.append(0)
+
+    assert len(on_off_belong)==len(Tpeaks)
+    print(len(on_off_belong), len(Tpeaks))
+
+
     intervalSD = []
     current_sd = 0 if sum(sSeq[0:Tpeaks[0]]) > sum(dSeq[0:Tpeaks[0]]) else 1
     intervalSD.append(current_sd)
-
 
     for i in range(len(Tpeaks) - 1):
         current_sd = 0 if sum(sSeq[Tpeaks[i]:Tpeaks[i + 1]]) > sum(dSeq[Tpeaks[i]:Tpeaks[i + 1]]) else 1
@@ -203,76 +253,122 @@ def Smooth_sdt6(predict_sdt, threshold=0.20, realtime=False, onstart_flag=False)
     current_sd = 0 if sum(sSeq[Tpeaks[-1]:]) > sum(dSeq[Tpeaks[-1]:]) else 1
     intervalSD.append(current_sd)
 
+
     MissingT = 0
     AddingT = 0
     est_intervals = []
     t_idx = 0
     while t_idx < len(Tpeaks) - 1:
 
-        if t_idx == 0 and Tpeaks[t_idx] not in onpeaks:
+        if t_idx == 0 and on_off_belong[t_idx] != 1:
             if intervalSD[0] == 1 and intervalSD[1] == 0:
-                onset_inserted = find_first_bellow_thres(sSeq[0:Tpeaks[0]])
-                if onset_inserted != Tpeaks[0] and Tpeaks > onset_inserted + 1:
+                onset_inserted, transit_flag = find_first_bellow_thres(sSeq[0:Tpeaks[0]], on_insert=True)
+                if onset_inserted != Tpeaks[0] and Tpeaks[0] > onset_inserted + 1:
                     est_intervals.append([0.02 * onset_inserted + 0.01, 0.02 * Tpeaks[0] + 0.01])
+                    if onSeqout:
+                        onSeqout_Seq.append(power_filter(sSeq, onset_inserted))
+                    AddingT += 1
+                elif transit_flag:
+                    est_intervals.append([0.02 * onset_inserted + 0.01, 0.02 * Tpeaks[t_idx] + 0.01])
+                    if onSeqout:
+                        onSeqout_Seq.append(power_filter(sSeq, onset_inserted))
                     AddingT += 1
                 else:
                     MissingT += 1
             t_idx += 1
-        elif t_idx == 0 and onstart_flag and Tpeaks[t_idx +1] not in offpeaks:
+        elif t_idx == 0 and onstart_flag and on_off_belong[t_idx + 1] != 0:
             if intervalSD[0] == 1 and intervalSD[1] == 0:
-                offset_inserted = find_first_bellow_thres(dSeq[0:Tpeaks[t_idx+1]])
-                if offset_inserted != Tpeaks[0] and Tpeaks > offset_inserted + 1:
-                    est_intervals.append([0.02 * offset_inserted + 0.01, 0.02 * Tpeaks[0] + 0.01])
+                onset_inserted, transit_flag = find_first_bellow_thres(sSeq[0:Tpeaks[t_idx + 1]], on_insert=True)
+                if onset_inserted != Tpeaks[0] and Tpeaks[0] > onset_inserted + 1:
+                    est_intervals.append([0.02 * onset_inserted + 0.01, 0.02 * Tpeaks[0] + 0.01])
+                    if onSeqout:
+                        onSeqout_Seq.append(power_filter(sSeq, onset_inserted))
+                    AddingT += 1
+                elif transit_flag:
+                    est_intervals.append([0.02 * onset_inserted + 0.01, 0.02 * Tpeaks[t_idx] + 0.01])
+                    if onSeqout:
+                        onSeqout_Seq.append(power_filter(sSeq, onset_inserted))
                     AddingT += 1
                 else:
                     MissingT += 1
             t_idx += 1
 
-        if Tpeaks[t_idx] in onpeaks and Tpeaks[t_idx + 1] in offpeaks:
+        if on_off_belong[t_idx] == 1 and on_off_belong[t_idx + 1] == 0:
             if Tpeaks[t_idx] == Tpeaks[t_idx + 1]:
                 t_idx += 1
                 continue
             if Tpeaks[t_idx + 1] > Tpeaks[t_idx] + 1:
                 est_intervals.append([0.02 * Tpeaks[t_idx] + 0.01, 0.02 * Tpeaks[t_idx + 1] + 0.01])
+                if onSeqout:
+                    onSeqout_Seq.append(power_filter(sSeq, Tpeaks[t_idx]))
             assert (Tpeaks[t_idx] < Tpeaks[t_idx + 1])
             t_idx += 2
             if t_idx > len(Tpeaks) - 2:
                 break
-        elif Tpeaks[t_idx] in onpeaks and Tpeaks[t_idx + 1] in onpeaks:
-            offset_inserted = find_first_bellow_thres(dSeq[Tpeaks[t_idx]:Tpeaks[t_idx + 1]]) + Tpeaks[t_idx]
+        elif on_off_belong[t_idx] == 1 and on_off_belong[t_idx + 1] == 1:
+            offset_inserted, transit_flag = find_first_bellow_thres(dSeq[Tpeaks[t_idx]:Tpeaks[t_idx + 1]],  on_insert=False)
+            offset_inserted += Tpeaks[t_idx]
             if offset_inserted != Tpeaks[t_idx] and offset_inserted > Tpeaks[t_idx] + 1:
                 est_intervals.append([0.02 * Tpeaks[t_idx] + 0.01, 0.02 * offset_inserted + 0.01])
+                if onSeqout:
+                    onSeqout_Seq.append(power_filter(sSeq, Tpeaks[t_idx]))
                 AddingT += 1
                 assert (Tpeaks[t_idx] < offset_inserted)
+
+            elif transit_flag:
+                est_intervals.append([0.02 * Tpeaks[t_idx] + 0.01, 0.02 * Tpeaks[t_idx+1] + 0.01])
+                if onSeqout:
+                    onSeqout_Seq.append(power_filter(sSeq, Tpeaks[t_idx]))
+                AddingT += 1
             else:
                 MissingT += 1
 
             t_idx += 1
-        elif Tpeaks[t_idx] in offpeaks:
+        elif on_off_belong[t_idx] == 0:
             if intervalSD[t_idx] == 1 and intervalSD[t_idx + 1] == 0:
-                onset_inserted = find_first_bellow_thres(sSeq[Tpeaks[t_idx - 1]:Tpeaks[t_idx]]) + Tpeaks[t_idx - 1]
-                if onset_inserted != Tpeaks[t_idx - 1] and Tpeaks[t_idx] > onset_inserted + 1:
+                onset_inserted, transit_flag = find_first_bellow_thres(sSeq[Tpeaks[t_idx - 1]:Tpeaks[t_idx]], on_insert=True)
+                onset_inserted += Tpeaks[t_idx - 1]
+                if onset_inserted > Tpeaks[t_idx - 1]-1 and Tpeaks[t_idx] > onset_inserted + 1:
                     est_intervals.append([0.02 * onset_inserted + 0.01, 0.02 * Tpeaks[t_idx] + 0.01])
+                    if onSeqout:
+                        onSeqout_Seq.append(power_filter(sSeq, onset_inserted))
                     AddingT += 1
                     assert (onset_inserted < Tpeaks[t_idx])
+                elif transit_flag:
+                    est_intervals.append([0.02 * onset_inserted + 0.01, 0.02 * Tpeaks[t_idx] + 0.01])
+                    if onSeqout:
+                        onSeqout_Seq.append(power_filter(sSeq, onset_inserted))
+                    AddingT += 1
                 else:
                     MissingT += 1
-            elif intervalSD[t_idx] == 1 and intervalSD[t_idx + 1] == 1 and Tpeaks[t_idx-1] in offpeaks:
-                onset_inserted = find_first_bellow_thres(sSeq[Tpeaks[t_idx - 1]:Tpeaks[t_idx]]) + Tpeaks[t_idx - 1]
+            elif intervalSD[t_idx] == 1 and intervalSD[t_idx + 1] == 1 and on_off_belong[t_idx - 1] == 0:
+                onset_inserted,transit_flag = find_first_bellow_thres(sSeq[Tpeaks[t_idx - 1]:Tpeaks[t_idx]], on_insert=True)
+                onset_inserted += Tpeaks[t_idx - 1]
                 if onset_inserted != Tpeaks[t_idx - 1] and Tpeaks[t_idx] > onset_inserted + 1:
                     est_intervals.append([0.02 * onset_inserted + 0.01, 0.02 * Tpeaks[t_idx] + 0.01])
+                    if onSeqout:
+                        onSeqout_Seq.append(power_filter(sSeq, onset_inserted))
                     AddingT += 1
                     assert (onset_inserted < Tpeaks[t_idx])
+
+                elif transit_flag:
+                    est_intervals.append([0.02 * onset_inserted + 0.01, 0.02 * Tpeaks[t_idx] + 0.01])
+                    if onSeqout:
+                        onSeqout_Seq.append(power_filter(sSeq, onset_inserted))
+                    AddingT += 1
+
                 else:
                     MissingT += 1
 
             t_idx += 1
 
     if realtime:
-        if len(Tpeaks)>1:
-            if Tpeaks[-1] in onpeaks and intervalSD[-1]==1:
+        if len(Tpeaks) > 1:
+            if on_off_belong[-1] == 1 and intervalSD[-1] == 1:
                 est_intervals.append([0.02 * Tpeaks[-1], 2])
-                onstart_flag=True
+                if onSeqout:
+                    onSeqout_Seq.append( power_filter(sSeq,Tpeaks[-1]))
+                onstart_flag = True
 
             else:
                 onstart_flag = False
@@ -286,11 +382,13 @@ def Smooth_sdt6(predict_sdt, threshold=0.20, realtime=False, onstart_flag=False)
     onSeq_np = np.array(onSeq, dtype=float)
     offSeq_np = np.array(offSeq, dtype=float)
 
+
     if realtime:
-        return np.array(est_intervals, dtype=float), sSeq_np, dSeq_np, onSeq_np, offSeq_np, MissingT / (len(Tpeaks) + AddingT),  onstart_flag
+        return np.array(est_intervals, dtype=float), sSeq_np, dSeq_np, onSeq_np, offSeq_np, MissingT / (
+                    len(Tpeaks) + AddingT), onstart_flag, onSeqout_Seq
 
     return np.array(est_intervals, dtype=float), sSeq_np, dSeq_np, onSeq_np, offSeq_np, MissingT / (
-                len(Tpeaks) + AddingT)
+            len(Tpeaks) + AddingT)
 
 
 def get_Resnet(channel=9):
@@ -331,7 +429,7 @@ def testset_evaluation_train(path, f_path, model=None, writer_in=None, timestep=
         record = []
         features_full = np.load(features[index])
         label_path = str(pathlib.Path(labels[index]).parent / (
-                    pathlib.Path(features[index]).stem.split('.')[0] + ".notes.Corrected"))
+                pathlib.Path(features[index]).stem.split('.')[0] + ".notes.Corrected"))
         label_note = read_notefile(label_path)
         gt_label_sec_on, gt_label_sec_off = note2onoff_sec(label_note)
 
@@ -346,8 +444,7 @@ def testset_evaluation_train(path, f_path, model=None, writer_in=None, timestep=
         features_full = np.concatenate((zero_pad, features_full), axis=1)
         features_full = np.concatenate((features_full, zero_pad), axis=1)
         features_full = abs(features_full)
-        features_full = np.power(features_full/features_full.max(), hparam.gamma_mu) #normalize &gamma compression
-
+        features_full = np.power(features_full / features_full.max(), hparam.gamma_mu)  # normalize &gamma compression
 
         for test_step in range(features_full.shape[1] - 18):
             curr_clip = features_full[:, test_step:test_step + 19]
@@ -363,11 +460,11 @@ def testset_evaluation_train(path, f_path, model=None, writer_in=None, timestep=
 
         record = np.array(record)
         print(features[index])
-        est_intervals,_,_,_,_,_ = Smooth_sdt6(record)
+        est_intervals, _, _, _, _, _ = Smooth_sdt6(record)
         # est_labels = output2label(record, is_batch=False, is_nparray=True)
         # est_label_sec_on, est_label_sec_off = timestep2second(est_labels)
-        est_smooth_label_sec_on=[]
-        est_smooth_label_sec_off=[]
+        est_smooth_label_sec_on = []
+        est_smooth_label_sec_off = []
         for interval in est_intervals:
             est_smooth_label_sec_on.append(interval[0])
             est_smooth_label_sec_off.append(interval[1])
@@ -381,7 +478,6 @@ def testset_evaluation_train(path, f_path, model=None, writer_in=None, timestep=
         sum_off_F1 += off_F
         count += 1
         print(f"smooth_on_F1: {on_F}, smooth_off_F1: {off_F}")
-
 
     writer.add_scalars(f"scalar\\onoff_F1", {'on_F1': sum_on_F1 / count, 'off_F1': sum_off_F1 / count}, timestep)
 
@@ -403,7 +499,7 @@ def testset_evaluation(path, f_path, model=None, writer_in=None, timestep=None, 
 
     sum_on_F1 = 0
     sum_off_F1 = 0
-    sum_note_F =0
+    sum_note_F = 0
 
     model.eval()
     count = 0
@@ -412,7 +508,6 @@ def testset_evaluation(path, f_path, model=None, writer_in=None, timestep=None, 
         # if count<3:
         #     count += 1
         #     continue
-
 
         if count > 4:  # shorten test time by sampling
             break
@@ -464,7 +559,7 @@ def testset_evaluation(path, f_path, model=None, writer_in=None, timestep=None, 
         est_smooth_label_sec_off = np.array(est_smooth_label_sec_off)
 
         # ===== pitch trace
-        est_pitch = interval2pitch_in_note(est_intervals, wavfile= wav_path)
+        est_pitch = interval2pitch_in_note(est_intervals, wavfile=wav_path)
 
         gt_interval_array = onoffarray2interval(gt_label_sec_on, gt_label_sec_off)
         gt_notes = gt_pitch_in_note(gt_interval_array, label_pitch)
@@ -490,17 +585,19 @@ def testset_evaluation(path, f_path, model=None, writer_in=None, timestep=None, 
     writer.add_scalar(f'scalar/onoff/off_F1', sum_off_F1 / count, timestep)
     writer.add_scalar(f'scalar/onoff/note_F', sum_note_F / count, timestep)
 
-
     #
     # writer.add_scalars(f"scalar\\onoff_F1", {'on_F1': sum_on_F1 / count, 'off_F1': sum_off_F1 / count}, timestep)
 
+
 def rawout2interval_picth(record, signal, sr, onstart_flag):
-    est_intervals, _, _, _, _, _, onstart_flag  = Smooth_sdt6(record, realtime=True, onstart_flag= onstart_flag)
+    est_intervals, _, _, _, _, _, onstart_flag, onSeqout = Smooth_sdt6(record, realtime=True, onstart_flag=onstart_flag, onSeqout=True)
 
-    est_pitch = interval2pitch_in_note(est_intervals, signal = signal, signal_only=True, sr=sr)
-    return est_intervals, est_pitch, onstart_flag
+    est_pitch = interval2pitch_in_note(est_intervals, signal=signal, signal_only=True, sr=sr)
+    return est_intervals, est_pitch, onstart_flag, onSeqout
 
-def signal_sampletest_stream(input_x, past_buffer, model=None, writer_in=None, timestep=None, channel=hparam.FEAT_channel):
+
+def signal_sampletest_stream(input_x, past_buffer, model=None, writer_in=None, timestep=None,
+                             channel=hparam.FEAT_channel):
     if not model:
         model = get_Resnet()
     if not writer_in:
@@ -523,9 +620,9 @@ def signal_sampletest_stream(input_x, past_buffer, model=None, writer_in=None, t
     # cut muted tail from feature
     # features_full = features_full[:, :label_note.shape[0]]
     # pad 9 zero steps in both head and tail
-    assert past_buffer.shape == (features_full.shape[0], past_buffersize+future_buffersize)
+    assert past_buffer.shape == (features_full.shape[0], past_buffersize + future_buffersize)
     padding = past_buffer
-    features_full = np.concatenate((padding, features_full), axis=1) # only do past padding
+    features_full = np.concatenate((padding, features_full), axis=1)  # only do past padding
     features_full = abs(features_full)
     features_full = np.power(features_full / features_full.max(), hparam.gamma_mu)  # normalize &gamma compression
 
@@ -549,7 +646,6 @@ def signal_sampletest_stream(input_x, past_buffer, model=None, writer_in=None, t
     furture_buffer = features_full[:, - (past_buffersize + future_buffersize):]
 
     return record, furture_buffer
-
 
 
 def whole_song_sampletest(path, f_path, model=None, writer_in=None, timestep=None, channel=9):
@@ -835,37 +931,40 @@ def gt_pitch_in_note(intervals, pitch_label, time_resolution=0.02):
 
 
 def freq2octal(_f0, pitch_steps):
-    octal_f0=[]
+    octal_f0 = []
     for f0 in _f0:
-        if f0<6:
+        if f0 < 6:
             octal_f0.append(0)
             continue
-        for idx in range(len(pitch_steps)-2):
-            if pitch_steps[idx+1] >f0:
+        for idx in range(len(pitch_steps) - 2):
+            if pitch_steps[idx + 1] > f0:
                 a = pitch_steps[idx]
-                b = pitch_steps[idx+1]
-                octal_f0.append(((f0 -pitch_steps[idx]) /(pitch_steps[idx+1]-pitch_steps[idx]) + idx))
+                b = pitch_steps[idx + 1]
+                octal_f0.append(((f0 - pitch_steps[idx]) / (pitch_steps[idx + 1] - pitch_steps[idx]) + idx))
                 break
 
     return octal_f0
+
 
 def smoothPitch(pitch_midi_list):
     pitch_midi_list = np.array(pitch_midi_list)
     print(" before smooth: ", pitch_midi_list)
     std_pitch_step = (pitch_midi_list.sum() / pitch_midi_list.shape[0]) // 12
 
-    pitch_midi_list[0]= pitch_midi_list[0]%12+ std_pitch_step*12
+    pitch_midi_list[0] = pitch_midi_list[0] % 12 + std_pitch_step * 12
 
     for idx in range(len(pitch_midi_list) - 1):
         if pitch_midi_list[idx + 1] - pitch_midi_list[idx] > 12:
-            pitch_midi_list[idx + 1]-=12
+            pitch_midi_list[idx + 1] -= 12
         elif pitch_midi_list[idx + 1] - pitch_midi_list[idx] < -12:
             pitch_midi_list[idx + 1] += 12
 
     print(" after smooth: ", pitch_midi_list)
     return pitch_midi_list
 
-def interval2pitch_in_note(interval, wavfile=None, signal=None, signal_only=False, sr=44100, second_length=200, is_plot=None):
+
+def interval2pitch_in_note(interval, wavfile=None, signal=None, signal_only=False, sr=44100, second_length=200,
+                           is_plot=None):
     pitch_steps = get_pitch_steps()
 
     pitches = []
@@ -880,9 +979,7 @@ def interval2pitch_in_note(interval, wavfile=None, signal=None, signal_only=Fals
         print("wrong parameters!")
         assert False
 
-
     _f0, t = pw.dio(y, sr)
-
 
     octal_f0 = np.array(freq2octal(_f0, pitch_steps))
 
@@ -890,55 +987,53 @@ def interval2pitch_in_note(interval, wavfile=None, signal=None, signal_only=Fals
         y_major_locator = MultipleLocator(1)
         ax = plt.gca()
         ax.yaxis.set_major_locator(y_major_locator)
-        plt.ylim(bottom=octal_f0[octal_f0 != 0].min(), top= octal_f0[octal_f0 != 0].max())
+        plt.ylim(bottom=octal_f0[octal_f0 != 0].min(), top=octal_f0[octal_f0 != 0].max())
         plt.plot(octal_f0)
         plt.show()
 
-    if len(interval)>0:
+    if len(interval) > 0:
         assert interval[-1][1] * second_length <= len(_f0)
     for idx, note in enumerate(interval):
-        if _f0.max()<1:
+        if _f0.max() < 1:
             pitch_midi_list.append(0)
             continue
 
         pitches = _f0[int(note[0] * second_length):int(note[1] * second_length)]
         length = len(pitches)
         pitches = pitches[int(length / 2):-int(length / 4)]
-        pitches = pitches[pitches!=0]
-        pitch_count=1.2
+        pitches = pitches[pitches != 0]
+        pitch_count = 1.2
 
         # if pitches
         #
-        while(pitches.size <1):
+        while (pitches.size < 1):
             pitches = _f0[int(note[0] * second_length):int(note[1] * second_length)]
-            pitches = pitches[int(length / (2*pitch_count)):-int(length / (4*pitch_count))]
+            pitches = pitches[int(length / (2 * pitch_count)):-int(length / (4 * pitch_count))]
             pitches = pitches[pitches != 0]
-            pitch_count+=0.1
-            if(pitch_count>2): #if no pitch take nearest
+            pitch_count += 0.1
+            if (pitch_count > 2):  # if no pitch take nearest
                 note_idx1 = int(note[0] * second_length)
                 note_idx2 = int(note[1] * second_length)
 
-                while(note_idx2<_f0.size-1):
-                    if _f0[note_idx2]>1:
-                        pitches = _f0[note_idx2:note_idx2+1]
+                while (note_idx2 < _f0.size - 1):
+                    if _f0[note_idx2] > 1:
+                        pitches = _f0[note_idx2:note_idx2 + 1]
                         break
                     else:
-                        note_idx2+=1
-                while(note_idx1 > 0 and pitches.size <1):
-                    if _f0[note_idx1]>1:
-                        pitches = _f0[note_idx1:note_idx1+1]
+                        note_idx2 += 1
+                while (note_idx1 > 0 and pitches.size < 1):
+                    if _f0[note_idx1] > 1:
+                        pitches = _f0[note_idx1:note_idx1 + 1]
                         break
                     else:
-                        note_idx1-=1
-
+                        note_idx1 -= 1
 
         pitch_midi_list.append(pick_pitch(pitches, pitch_steps))
 
     # smooth pitch to avoid big gap
 
-    if len(pitch_midi_list)>0:
+    if len(pitch_midi_list) > 0:
         pitch_midi_list = smoothPitch(pitch_midi_list)
-
 
     return pitch_midi_list
 
@@ -1024,18 +1119,19 @@ def onoffarray2interval(onset_array, offset_array):
 
     return np.array(note_list)
 
+
 def plot_note(gt_interval_array, gt_notes, est_intervals, est_pitch):
     gt_notes = np.round(gt_notes, 0)
 
     new_gt = []
-    for idx, interval in enumerate(gt_interval_array) :
-        new_gt.append([interval[0],gt_notes[idx] ])
+    for idx, interval in enumerate(gt_interval_array):
+        new_gt.append([interval[0], gt_notes[idx]])
         new_gt.append([interval[1], gt_notes[idx]])
 
-    new_est=[]
-    for idx, interval in enumerate(est_intervals) :
-        new_est.append([interval[0],est_pitch[idx] ])
-        new_est.append([interval[1],est_pitch[idx] ])
+    new_est = []
+    for idx, interval in enumerate(est_intervals):
+        new_est.append([interval[0], est_pitch[idx]])
+        new_est.append([interval[1], est_pitch[idx]])
 
     new_gt = np.array(new_gt)
     new_est = np.array(new_est)
@@ -1045,13 +1141,11 @@ def plot_note(gt_interval_array, gt_notes, est_intervals, est_pitch):
     plt.xticks(fontsize=12)  # 設定坐標軸數字格式
     plt.yticks(fontsize=12)
 
-    plt.plot(new_gt[:,0], new_gt[:,1], color='red', linewidth=1, label='GT')
-    plt.plot(new_est[:,0], new_est[:,1], color='blue', linewidth=1, label='EST')
+    plt.plot(new_gt[:, 0], new_gt[:, 1], color='red', linewidth=1, label='GT')
+    plt.plot(new_est[:, 0], new_est[:, 1], color='blue', linewidth=1, label='EST')
     # plt.legend(handles=[line1, line2], loc='upper right')
     plt.show()
     return
-
-
 
 
 if __name__ == '__main__':
@@ -1064,7 +1158,6 @@ if __name__ == '__main__':
     model = get_Resnet(channel=hparam.FEAT_channel).to(device)
     model.load_state_dict(torch.load("checkpoint/1227_748HP.pth"))
     print("load OK")
-
 
     testset_evaluation(path, f_path, model=model, is_plot=True, channel=hparam.FEAT_channel)
     #

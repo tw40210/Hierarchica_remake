@@ -3,7 +3,7 @@
 # import torch
 import os
 import numpy as np
-from utils import read_notefile, note2timestep, interval2pitch_in_note
+from utils import read_notefile, note2timestep, interval2pitch_in_note, soloCliptest
 import hparam
 import random
 import matplotlib.pyplot as plt
@@ -18,8 +18,10 @@ import crepe
 # !/usr/bin/python
 # -*- coding: UTF-8 -*-
 
+soloCliptest("2.wav")
 
-interval2pitch_in_note([], "wav_check/10.wav", is_plot=True)
+print(48.5%12)
+interval2pitch_in_note([], "wav_check/6.wav", is_plot=True)
 
 
 

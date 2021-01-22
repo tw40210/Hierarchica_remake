@@ -18,7 +18,7 @@ import pygame
 import pygame.mixer
 from time import sleep
 import threading
-
+import accompaniment
 
 import pygame
 import pygame.mixer
@@ -84,7 +84,7 @@ def create_MIDI(interval, pitches):
     channel = 0
     pitch = 60
     duration = 1
-    volume = 100
+    volume = 0
     bpm = 60
     MyMIDI.addTrackName(track, time, "Sample Track")
     MyMIDI.addTempo(track, time, bpm)
@@ -199,8 +199,9 @@ while True:
     data_float = np.concatenate((wavform_buffer, data_float[:int(-RATE*hparam.timestep*(hparam.FEAT_pastpad))]), axis=0) # adjust wav signal to match label
     wavform_buffer = padding_data_float
     librosa.output.write_wav(f"wav_check/{count}.wav", data_float, sr=RATE)
-    interval, pitches, onstart_flag = rawout2interval_picth(record, data_float, sr=RATE, onstart_flag=onstart_flag)
+    interval, pitches, onstart_flag, onSeqout = rawout2interval_picth(record, data_float, sr=RATE, onstart_flag=onstart_flag)
 
+    chord_idx = accompaniment.chord_recongnize(interval, pitches)
 
     mide_file = create_MIDI(interval, pitches)
 

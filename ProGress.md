@@ -17,3 +17,4 @@ LOSS should contain label transform info
 10. wholesongtest length unmatch issue
 11. is going to check preprocess data is OK
 12. pitch_predictor debug on evaluation
+13. 5.wav verify why no note in late audio^X
