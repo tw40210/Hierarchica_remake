@@ -11,6 +11,9 @@ def soloCliptest(file_path,model, RATE=16000):
     wavform_buffer = np.zeros((int(RATE * hparam.timestep * hparam.FEAT_futurepad)))
     data_float, sr = librosa.load(file_path, sr=RATE)
     SN_SIN_ZN = output_feature_extraction_nosave(data_float, window_size=[768, 372, 186])
+    buffer[:,hparam.FEAT_pastpad:hparam.FEAT_pastpad + hparam.FEAT_futurepad] = SN_SIN_ZN[:, 0:hparam.FEAT_pastpad] # repad FEAT to get a zero head and tail
+    SN_SIN_ZN= np.concatenate((SN_SIN_ZN[:,:-hparam.FEAT_futurepad], np.zeros((hparam.FEAT_freqbin_num * hparam.FEAT_channel, hparam.FEAT_futurepad))), axis=1)
+
     record, buffer = signal_sampletest_stream(SN_SIN_ZN,past_buffer=buffer, model=model, channel=hparam.FEAT_channel)
     # est_intervals, _, _, _, _, _, onstart_flag = Smooth_sdt6(record, realtime=True, onstart_flag= onstart_flag)
 

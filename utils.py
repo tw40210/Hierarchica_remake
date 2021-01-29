@@ -215,9 +215,9 @@ def Smooth_sdt6(predict_sdt, threshold=0.20, realtime=False, onstart_flag=False,
     if len(onpeaks) == 0 or len(offpeaks) == 0:
 
         if realtime:
-            return [], [], [], [], [], 0, onstart_flag, onSeqout
+            return np.array([]), 0, onstart_flag, onSeqout_Seq
         else:
-            return [], [], [], [], [], 0
+            return np.array([]), 0
 
     Tpeaks = onpeaks + offpeaks
     Tpeaks.sort()
@@ -276,6 +276,7 @@ def Smooth_sdt6(predict_sdt, threshold=0.20, realtime=False, onstart_flag=False,
                 else:
                     MissingT += 1
             t_idx += 1
+            continue
         elif t_idx == 0 and onstart_flag and on_off_belong[t_idx + 1] != 0:
             if intervalSD[0] == 1 and intervalSD[1] == 0:
                 onset_inserted, transit_flag = find_first_bellow_thres(sSeq[0:Tpeaks[t_idx + 1]], on_insert=True)
@@ -292,6 +293,7 @@ def Smooth_sdt6(predict_sdt, threshold=0.20, realtime=False, onstart_flag=False,
                 else:
                     MissingT += 1
             t_idx += 1
+            continue
 
         if on_off_belong[t_idx] == 1 and on_off_belong[t_idx + 1] == 0:
             if Tpeaks[t_idx] == Tpeaks[t_idx + 1]:
@@ -377,17 +379,13 @@ def Smooth_sdt6(predict_sdt, threshold=0.20, realtime=False, onstart_flag=False,
     print("Conflict ratio: ", MissingT / (len(Tpeaks) + AddingT))
 
     # Modify 1
-    sSeq_np = np.array(sSeq, dtype=float)
-    dSeq_np = np.array(dSeq, dtype=float)
-    onSeq_np = np.array(onSeq, dtype=float)
-    offSeq_np = np.array(offSeq, dtype=float)
 
 
     if realtime:
-        return np.array(est_intervals, dtype=float), sSeq_np, dSeq_np, onSeq_np, offSeq_np, MissingT / (
-                    len(Tpeaks) + AddingT), onstart_flag, onSeqout_Seq
+        return np.array(est_intervals, dtype=float), MissingT / (
+                    len(Tpeaks) + AddingT), onstart_flag, np.array(onSeqout_Seq)
 
-    return np.array(est_intervals, dtype=float), sSeq_np, dSeq_np, onSeq_np, offSeq_np, MissingT / (
+    return np.array(est_intervals, dtype=float), MissingT / (
             len(Tpeaks) + AddingT)
 
 
@@ -460,7 +458,7 @@ def testset_evaluation_train(path, f_path, model=None, writer_in=None, timestep=
 
         record = np.array(record)
         print(features[index])
-        est_intervals, _, _, _, _, _ = Smooth_sdt6(record)
+        est_intervals, _ = Smooth_sdt6(record)
         # est_labels = output2label(record, is_batch=False, is_nparray=True)
         # est_label_sec_on, est_label_sec_off = timestep2second(est_labels)
         est_smooth_label_sec_on = []
@@ -547,7 +545,7 @@ def testset_evaluation(path, f_path, model=None, writer_in=None, timestep=None, 
 
         record = np.array(record)
         print(features[index])
-        est_intervals, _, _, _, _, _ = Smooth_sdt6(record)
+        est_intervals, _, = Smooth_sdt6(record)
         # est_labels = output2label(record, is_batch=False, is_nparray=True)
         # est_label_sec_on, est_label_sec_off = timestep2second(est_labels)
         est_smooth_label_sec_on = []
@@ -590,7 +588,7 @@ def testset_evaluation(path, f_path, model=None, writer_in=None, timestep=None, 
 
 
 def rawout2interval_picth(record, signal, sr, onstart_flag):
-    est_intervals, _, _, _, _, _, onstart_flag, onSeqout = Smooth_sdt6(record, realtime=True, onstart_flag=onstart_flag, onSeqout=True)
+    est_intervals, _, onstart_flag, onSeqout = Smooth_sdt6(record, realtime=True, onstart_flag=onstart_flag, onSeqout=True)
 
     est_pitch = interval2pitch_in_note(est_intervals, signal=signal, signal_only=True, sr=sr)
     return est_intervals, est_pitch, onstart_flag, onSeqout

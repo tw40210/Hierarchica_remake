@@ -1,6 +1,6 @@
 import random
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 import numpy as np
 import torch
@@ -29,11 +29,11 @@ def train():
 
     train_path = ['data/train/train_extension']
 
-    train_f_path = ['data/train/train_extension_Process522_win743/FEAT']
+    train_f_path = ['data/train/train_extension_Process_data/FEAT']
     test_path = ['data/test/EvaluationFramework_ISMIR2014/DATASET']
-    test_f_path = ['data/test/Process_data522_win743/FEAT']
+    test_f_path = ['data/test/Process_data/FEAT']
     testsample_path = "data/test_sample/wav_label"
-    testsample_f_path = "data/test_sample/test_sample522_win743/FEAT"
+    testsample_f_path = "data/test_sample/FEAT"
 
     if torch.cuda.is_available():
         print("cuda")
