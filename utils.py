@@ -367,7 +367,7 @@ def Smooth_sdt6(predict_sdt, threshold=0.20, realtime=False, onstart_flag=False,
     if realtime:
         if len(Tpeaks) > 1:
             if on_off_belong[-1] == 1 and intervalSD[-1] == 1:
-                est_intervals.append([0.02 * Tpeaks[-1], 2])
+                est_intervals.append([0.02 * Tpeaks[-1], (60/hparam.song_bpm)*2])
                 if onSeqout:
                     onSeqout_Seq.append( power_filter(sSeq,Tpeaks[-1]))
                 onstart_flag = True
@@ -765,6 +765,30 @@ def get_accuracy(est_label, ref_label):
     return correct / total
 
 
+def read_sheetlabel(path):
+    gt_sheetlabel=[]
+    downbeats=[]
+
+    with open(path, 'r') as gt_file:
+        tempo_count=0
+        for line in gt_file.readlines():
+            data= line.split(',')
+            if data[1]=="D":
+                downbeats.append(tempo_count)
+
+            tempo_count+=int(data[0])
+            if tempo_count>=16:
+                gt_sheetlabel.append([downbeats, data[2].strip()])
+                tempo_count = 0
+                downbeats = []
+
+    return gt_sheetlabel
+
+
+
+
+
+
 def read_notefile(path, limit_len=None):
     notes = []
     with open(path, 'r') as txt:
@@ -946,7 +970,6 @@ def freq2octal(_f0, pitch_steps):
 
 def smoothPitch(pitch_midi_list):
     pitch_midi_list = np.array(pitch_midi_list)
-    print(" before smooth: ", pitch_midi_list)
     std_pitch_step = (pitch_midi_list.sum() / pitch_midi_list.shape[0]) // 12
 
     pitch_midi_list[0] = pitch_midi_list[0] % 12 + std_pitch_step * 12
@@ -957,7 +980,6 @@ def smoothPitch(pitch_midi_list):
         elif pitch_midi_list[idx + 1] - pitch_midi_list[idx] < -12:
             pitch_midi_list[idx + 1] += 12
 
-    print(" after smooth: ", pitch_midi_list)
     return pitch_midi_list
 
 

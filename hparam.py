@@ -23,3 +23,5 @@ modelcode_path = "model.py"
 
 testsample_path = "data/test_sample/wav_label"
 testsample_f_path = "data/test_sample/Process_data_S1W743HP/FEAT"
+
+song_bpm = 67

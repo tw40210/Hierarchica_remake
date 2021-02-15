@@ -2,7 +2,8 @@ import numpy as np
 import librosa
 from preprocess import output_feature_extraction_nosave
 import hparam
-from utils import signal_sampletest_stream, rawout2interval_picth, get_Resnet
+import os
+from utils import signal_sampletest_stream, rawout2interval_picth, get_Resnet,read_sheetlabel
 import torch
 
 
@@ -24,12 +25,92 @@ def soloCliptest(file_path,model, RATE=16000):
     interval, pitches, onstart_flag, onSeqout = rawout2interval_picth(record, data_float, sr=RATE, onstart_flag=False)
     return interval, pitches
 
-if __name__ == '__main__':
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    model = get_Resnet(hparam.FEAT_channel).to(device)
-    model.load_state_dict(torch.load("standard_checkpoint/960_1030perform077.pth"))
-    print("load OK")
-    interval, pitches = soloCliptest(file_path="5.wav", model= model)
+def gt_midimatch(gt_txtpath, est_npypath):
+    est_nparray = np.load(est_npypath,allow_pickle=True)
+    gt_nparray = np.array(read_sheetlabel(gt_txtpath))
 
-    print("interval: ", interval)
-    print("fin")
+    beats_total =0
+    beats_correct =0
+    chord_total=0
+    chord_correct=0
+
+    if est_nparray.shape[0]> gt_nparray.shape[0]:
+        midilength = gt_nparray.shape[0]
+    else:
+        midilength = est_nparray.shape[0]
+
+    for idx in range(midilength):
+        for beat in est_nparray[idx][0]:
+            if beat in gt_nparray[idx][0]:
+                beats_correct+=1
+            beats_total+=1
+        if est_nparray[idx][1]==gt_nparray[idx][1]:
+            chord_correct+=1
+        chord_total+=1
+
+    return beats_correct/beats_total, chord_correct/chord_total
+
+def output_integration(midi_dir, wav_dir):
+    from midi2audio import FluidSynth
+    import shutil
+    midiout_dir = "midi_check/midi_wav"
+    finalout_dir ="offline_output"
+
+    shutil.rmtree("midi_check/midi_wav")
+    os.makedirs("midi_check/midi_wav", exist_ok=True)
+    fs = FluidSynth()
+    midiwav_y = np.zeros(0)
+    wav_y = np.zeros(0)
+
+    for midifile in os.listdir(midi_dir):
+        if ".mid" in midifile:
+            fs.midi_to_audio(f'{midi_dir}/{midifile}', f'midi_check/midi_wav/{midifile[:-4]}.wav')
+
+
+    midipath_list = os.listdir(midiout_dir)
+    wavpath_list = os.listdir(wav_dir)
+
+    def pathsort(path):
+        return int(path.split(".")[0])
+
+    midipath_list.sort(key=pathsort)
+    wavpath_list.sort(key=pathsort)
+
+
+
+    for midiwav in midipath_list:
+        y, sr  = librosa.load(f'{midiout_dir}/{midiwav}', sr=hparam.sr)
+        midiwav_y = np.concatenate((midiwav_y, y), axis=0)
+
+    for wav_file in wavpath_list:
+        y, sr  = librosa.load(f'{wav_dir}/{wav_file}', sr=hparam.sr)
+        wav_y = np.concatenate((wav_y, y), axis=0)
+
+    if wav_y.shape[0]> midiwav_y.shape[0]:
+        wav_y = wav_y[:midiwav_y.shape[0]]
+    else:
+        midiwav_y = midiwav_y[:wav_y.shape[0]]
+
+    wav_y = wav_y+midiwav_y*10
+
+    librosa.output.write_wav(f"{finalout_dir}/finaltest.wav", wav_y,  sr=hparam.sr)
+
+
+
+if __name__ == '__main__':
+    # device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    # model = get_Resnet(hparam.FEAT_channel).to(device)
+    # model.load_state_dict(torch.load("standard_checkpoint/960_1030perform077.pth"))
+    # print("load OK")
+    # interval, pitches = soloCliptest(file_path="5.wav", model= model)
+    #
+    # print("interval: ", interval)
+    # print("fin")
+
+    gt_path = "Jay Chou_Sunny Day_vocal.txt"
+    est_path = "midi_record/Jay Chou_Sunny Day_vocal.npy"
+
+    # print(gt_midimatch(gt_path, est_path))
+
+    #
+    output_integration("midi_check", "wav_check")
