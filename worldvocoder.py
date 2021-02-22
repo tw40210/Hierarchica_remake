@@ -95,7 +95,7 @@ def create_MIDI(note_list, count=0):
     channel = 0
     pitch = 60
     duration = 1
-    volume = 40
+    volume = 20
     end_time = int(CHUNK / RATE)
     bpm = song_bpm
     MyMIDI.addTrackName(track, time, "Sample Track")
@@ -228,6 +228,8 @@ while True:
             note_list = note_making(tempo_list, chord_next, chord_step)
             if is_offline:
                 midi_record(tempo_list, chord_next, midirecord)
+
+    print(f"record: {chord_record}, temp: {chord_temp}")
 
     print("note_list: ", note_list)
     mide_file = create_MIDI(note_list, count=count)

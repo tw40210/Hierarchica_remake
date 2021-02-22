@@ -110,7 +110,7 @@ if __name__ == '__main__':
     gt_path = "Jay Chou_Sunny Day_vocal.txt"
     est_path = "midi_record/Jay Chou_Sunny Day_vocal.npy"
 
-    # print(gt_midimatch(gt_path, est_path))
+    print(gt_midimatch(gt_path, est_path))
 
-    #
+
     output_integration("midi_check", "wav_check")

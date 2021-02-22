@@ -23,8 +23,8 @@ def chord_recongnize(interval, pitches):
             octaves.append(octave)
             steps.append(step)
 
-    for idx, step in enumerate(steps):
-        chord_weight[int(step)] += (interval[idx][1] - interval[idx][0]) + 0.2  # give each note a basic score
+    for idx, octave in enumerate(octaves):
+        chord_weight[int(octave)] += (interval[idx][1] - interval[idx][0]) + 0.2  # give each note a basic score
 
     for idx, chord in enumerate(chords):
         chord_score[idx] += chord_weight[chord[0] % 12] * 1
@@ -76,17 +76,26 @@ def note_making(tempo_list, chord_idx, chord_step):
         [0, chord_selected[0] + chord_step - 12, chord_selected[0] + chord_step, chord_selected[1] + chord_step,
          chord_selected[2] + chord_step])
 
+    chord_highlow_flag= True
+
     for idx in range(8):
         if idx == 0:
             continue
-
-        if tempo_list[idx] == 2:
+        if tempo_list[idx] == 0:
+            if chord_highlow_flag:
+                note_list.append([idx, chord_selected[0] + chord_step])
+                chord_highlow_flag = not chord_highlow_flag
+            else:
+                note_list.append([idx, chord_selected[1] + chord_step])
+                chord_highlow_flag = not chord_highlow_flag
+        elif tempo_list[idx] == 2:
             note_list.append([idx, chord_selected[0] + chord_step])
         elif tempo_list[idx] == 3:
             note_list.append([idx, chord_selected[1] + chord_step, chord_selected[2] + chord_step])
         elif tempo_list[idx] == 1:
             note_list.append(
                 [idx, chord_selected[0] + chord_step, chord_selected[1] + chord_step, chord_selected[2] + chord_step])
+
 
     return note_list
 
