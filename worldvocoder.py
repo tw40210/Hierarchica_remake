@@ -14,6 +14,8 @@ import pygame.mixer
 from time import sleep
 import threading
 from accompaniment import tempo_making, note_making, chord_recongnize, chord_predict
+import os
+
 
 import pygame
 import pygame.mixer
@@ -31,8 +33,21 @@ FORMAT = pyaudio.paFloat32
 CHANNELS = 1
 
 is_offline = True
+do_clean=True
+if do_clean:
+    wav_folder="wav_check"
+    for file in os.listdir(wav_folder):
+        if ".wav" in file:
+                os.remove(f"{wav_folder}/{file}")
+
+    midi_folder="midi_check"
+    for file in os.listdir(midi_folder):
+        if ".mid" in file:
+                os.remove(f"{midi_folder}/{file}")
+
+
 if is_offline:
-    wavfile_path = "Jay Chou_Sunny Day_vocal.wav"
+    wavfile_path = "Almost Famous_vocals.wav"
     wav_signal, sr = librosa.load(wavfile_path, sr=RATE)
 
 chord_index = {0: "C", 1: "D", 2: "E", 3: "F", 4: "G", 5: "A", 6: "B"}
@@ -202,8 +217,9 @@ while True:
         if chord_step == 0:  # prevent all 0 pitch
             note_list = old_note_list
         else:
-            chord_next = chord_predict(chord_record[0], chord_temp, chord_prob_table)
+            chord_next = chord_predict(chord_record[1], chord_temp, chord_prob_table)
             note_list = note_making(tempo_list, chord_next, chord_step)
+            old_note_list = note_list
             if is_offline:
                 midi_record(tempo_list, chord_next, midirecord)
     else:
@@ -226,6 +242,7 @@ while True:
             chord_record[1] = chord_temp
             chord_next = chord_predict(chord_record[0], chord_record[1], chord_prob_table)
             note_list = note_making(tempo_list, chord_next, chord_step)
+            old_note_list = note_list
             if is_offline:
                 midi_record(tempo_list, chord_next, midirecord)
 

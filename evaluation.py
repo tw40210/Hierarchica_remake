@@ -86,6 +86,10 @@ def output_integration(midi_dir, wav_dir):
         y, sr  = librosa.load(f'{wav_dir}/{wav_file}', sr=hparam.sr)
         wav_y = np.concatenate((wav_y, y), axis=0)
 
+    print(wav_y.max())
+    wav_y/=wav_y.max()*4
+    print(wav_y.max())
+
     if wav_y.shape[0]> midiwav_y.shape[0]:
         wav_y = wav_y[:midiwav_y.shape[0]]
     else:
@@ -110,7 +114,7 @@ if __name__ == '__main__':
     gt_path = "Jay Chou_Sunny Day_vocal.txt"
     est_path = "midi_record/Jay Chou_Sunny Day_vocal.npy"
 
-    print(gt_midimatch(gt_path, est_path))
+    # print(gt_midimatch(gt_path, est_path))
 
 
     output_integration("midi_check", "wav_check")

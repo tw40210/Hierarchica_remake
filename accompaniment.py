@@ -1,4 +1,5 @@
 import numpy as np
+import hparam
 
 chords = [[0, 4, 7], [2, 5, 9], [4, 7, 11], [5, 9, 12], \
           [7, 11, 14], [-3, 0, 4], [-1, 2, 6]]
@@ -44,16 +45,17 @@ def tempo_making(interval, onSeqout):
 
     tempo_list = np.zeros(8)  # separate  one clip to 8, 1 = downbeat ,2 = sub beat
     num_beats = interval.shape[0]
+    note_length = int((60/hparam.song_bpm)/4)
 
     if len(onSeqout)>0:
         on_time = interval[onSeqout.argmax()][0] * 100
 
-        if on_time % 25 < 13:  # to get the nearest beat in note
-            tempo_list[int(on_time // 25)] = 1
-            downbeat = int(on_time // 25)
-        elif on_time // 25 < 7:
-            tempo_list[int(on_time // 25) + 1] = 1
-            downbeat = int(on_time // 25) + 1
+        if on_time % note_length < note_length//2+1:  # to get the nearest beat in note
+            tempo_list[int(on_time // note_length)] = 1
+            downbeat = int(on_time // note_length)
+        elif on_time // note_length < tempo_list.shape[0]-1:
+            tempo_list[int(on_time // note_length) + 1] = 1
+            downbeat = int(on_time // note_length) + 1
         else:
             downbeat=0
 
