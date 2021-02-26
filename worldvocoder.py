@@ -47,7 +47,7 @@ if do_clean:
 
 
 if is_offline:
-    wavfile_path = "Almost Famous_vocals.wav"
+    wavfile_path = "Ifwedontmeet.wav"
     wav_signal, sr = librosa.load(wavfile_path, sr=RATE)
 
 chord_index = {0: "C", 1: "D", 2: "E", 3: "F", 4: "G", 5: "A", 6: "B"}
@@ -102,7 +102,8 @@ def convert_seconds_to_quarter(time_in_sec, bpm):
     return time_in_quarter
 
 
-def create_MIDI(note_list, count=0):
+def create_MIDI(note_list, count=0, volume_para=1):
+    volume_para = max(min(volume_para, 3), 1)
     memFile = BytesIO()
     MyMIDI = MIDIFile(1)
     track = 0
@@ -110,7 +111,7 @@ def create_MIDI(note_list, count=0):
     channel = 0
     pitch = 60
     duration = 1
-    volume = 20
+    volume = int(20 * volume_para)
     end_time = int(CHUNK / RATE)
     bpm = song_bpm
     MyMIDI.addTrackName(track, time, "Sample Track")
@@ -170,6 +171,8 @@ midi_playing = False
 onstart_flag = False
 chord_record = np.zeros(2, dtype=int)  # start with C, C
 old_note_list = [[0, 48, 51, 54]]
+volume_ori_para =1
+volume_cur_para =1
 
 chord_prob_table = np.load("chord_probability.npy")
 chord_next = 0
@@ -195,6 +198,11 @@ while True:
 
     start = time.time()
     data_float = np.fromstring(data, 'Float32')
+
+    if count==3:
+        volume_ori_para = abs(data_float).mean()
+
+    volume_cur_para = abs(data_float).mean()
 
     SN_SIN_ZN = output_feature_extraction_nosave(data_float, window_size=[768, 372, 186])
     record, buffer = signal_sampletest_stream(SN_SIN_ZN, past_buffer=buffer, model=model, channel=hparam.FEAT_channel)
@@ -248,8 +256,8 @@ while True:
 
     print(f"record: {chord_record}, temp: {chord_temp}")
 
-    print("note_list: ", note_list)
-    mide_file = create_MIDI(note_list, count=count)
+    print("volume_para: ", volume_cur_para/volume_ori_para)
+    mide_file = create_MIDI(note_list, count=count, volume_para=(volume_cur_para/volume_ori_para))
 
     print(count)
     if not is_offline:
