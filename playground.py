@@ -11,18 +11,35 @@ import pathlib
 # import pyworld as pw
 import librosa
 from tqdm import tqdm
-import  mir_eval
+import mir_eval
 import crepe
 from accompaniment import chord_probability, chord_predict
 import midi2audio
 from midi2audio import FluidSynth
+import math
 
+lat_long1 =np.array([20, 123])
+theta, d = 90* math.pi / 180, 50
+R = 6357
+lat_long2 = [21, 124]
+
+lat_long1 = lat_long1 * math.pi / 180
+
+lat2 = math.asin(
+    (math.sin(lat_long1[0]) * math.cos(d / R)) + (math.cos(lat_long1[0]) * math.cos(theta) * math.sin(d / R)))
+long2 = lat_long1[1] + math.atan((math.cos(lat_long1[0]) * math.sin(theta) * math.sin(d / R)) / (
+            math.cos(d / R) - (math.sin(lat_long1[0]) * math.sin(lat2))))
+
+
+
+print(lat2* 180  / math.pi,long2* 180  / math.pi )
+print(lat2,long2 )
 # ##=================
 # for midifile in os.listdir("midi_check"):
 #     if ".mid" in midifile:
 #         os.rename(f"midi_check/{midifile}", f"midi_check/{midifile[:-5]}.mid")
 
-#==============
+# ==============
 #
 #
 # dir = "data/train_extension_Process522/FEAT"
@@ -90,7 +107,3 @@ from midi2audio import FluidSynth
 #
 #                     write_label(labelfile, tarlabelfile, action, scale)
 #
-
-
-
-

@@ -15,6 +15,7 @@ from time import sleep
 import threading
 from accompaniment import tempo_making, note_making, chord_recongnize, chord_predict
 import os
+from evaluation import output_integration
 
 
 import pygame
@@ -47,13 +48,13 @@ if do_clean:
 
 
 if is_offline:
-    wavfile_path = "Ifwedontmeet.wav"
+    wavfile_path = "Almost Famous_vocals.wav"
     wav_signal, sr = librosa.load(wavfile_path, sr=RATE)
 
 chord_index = {0: "C", 1: "D", 2: "E", 3: "F", 4: "G", 5: "A", 6: "B"}
 
 SHOOT_SOUND = pygame.mixer.Sound('data/bass.wav')
-SHOOT_SOUND.set_volume(0.01)
+SHOOT_SOUND.set_volume(0.04)
 
 global mide_file
 global play_lock
@@ -90,7 +91,7 @@ def waitBuffer(minBuffer):
 
 
 def clearBuffer(stream, CHUNK):
-    while stream.get_read_available() > 0:
+    while stream.get_read_available() > CHUNK/2:
         stream.read(CHUNK)
 
     # stream.read( int(CHUNK*0.8)) # rest 0.2 length buffer
@@ -103,7 +104,7 @@ def convert_seconds_to_quarter(time_in_sec, bpm):
 
 
 def create_MIDI(note_list, count=0, volume_para=1):
-    volume_para = max(min(volume_para, 3), 1)
+    volume_para = max(min(volume_para**0.5, 2), 1)
     memFile = BytesIO()
     MyMIDI = MIDIFile(1)
     track = 0
@@ -111,22 +112,29 @@ def create_MIDI(note_list, count=0, volume_para=1):
     channel = 0
     pitch = 60
     duration = 1
-    volume = int(20 * volume_para)
-    end_time = int(CHUNK / RATE)
+    volume = int(30 * volume_para)
+    end_time = CHUNK / RATE
     bpm = song_bpm
     MyMIDI.addTrackName(track, time, "Sample Track")
     MyMIDI.addTempo(track, time, bpm)
 
-    delay = -0.3  # delay mainly by pygame load& play can't avoid so far because load will stop music
+    if not is_offline:
+        delay = -0.5  # delay mainly by pygame load& play can't avoid so far because load will stop music
+    else:
+        delay=0
 
     for note in note_list:
         beat_pos = note[0]
         time = convert_seconds_to_quarter(beat_pos * 0.25, bpm)
-        duration = convert_seconds_to_quarter(end_time - time, bpm)
+        duration = convert_seconds_to_quarter(end_time - time +delay, bpm)
+        new_observer = end_time - time +delay
         for idx in range(len(note)):
             if idx == 0:
                 continue
-            MyMIDI.addNote(track, channel, int(note[idx]), time, duration, volume)
+            if len(note)>2:
+                MyMIDI.addNote(track, channel, int(note[idx]), time, duration, volume)
+            else:
+                MyMIDI.addNote(track, channel, int(note[idx]), time, duration, int(volume*0.6))
 
     if not is_offline:
         MyMIDI.writeFile(memFile)
@@ -148,7 +156,7 @@ if not is_offline:
         rate=RATE,
         input=True,
         output=True,
-        frames_per_buffer=int(CHUNK * 0.5),
+        frames_per_buffer=int(CHUNK),
         # stream_callback = callbackln
     )
 
@@ -257,6 +265,8 @@ while True:
     print(f"record: {chord_record}, temp: {chord_temp}")
 
     print("volume_para: ", volume_cur_para/volume_ori_para)
+    print("tempo_list: ", tempo_list)
+    print("note_list: ", note_list)
     mide_file = create_MIDI(note_list, count=count, volume_para=(volume_cur_para/volume_ori_para))
 
     print(count)
@@ -282,3 +292,6 @@ while True:
     print(interval, pitches)
     end = time.time()
     print(end - start)
+
+if is_offline:
+    output_integration("midi_check", "wav_check")
