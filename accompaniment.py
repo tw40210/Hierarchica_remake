@@ -7,6 +7,9 @@ chords = [[0, 4, 7], [2, 5, 9], [4, 7, 11], [5, 9, 12], \
 chord_flow = [[4, 5, 3, 6, 2, 5, 1], [1, 6, 4, 5], [1, 4, 5, 1], [2, 5, 1, 4, 7, 3, 6], [1, 5, 2, 6, 4, 1, 5],
               [4, 3, 6], [4, 3, 2, 1], [6, 5, 4, 3, 2, 6, 4, 1], [1, 2, 3, 4, 3, 2, 5, 1]]
 
+chord_index = {0: "C", 1: "D", 2: "E", 3: "F", 4: "G", 5: "A", 6: "B"}
+chord_index_inv = {"C": 0, "D": 1, "E": 2, "F": 3, "G": 4, "A": 5, "B": 6}
+
 
 def decompose_octave(pitch, tone):
     return pitch % 12, (pitch + tone) // 12
@@ -18,7 +21,7 @@ def chord_recongnize(interval, pitches):
     chord_weight = np.zeros(12)
     chord_score = np.zeros(7)
     tone = hparam.song_tone
-    if len(pitches)>0:
+    if len(pitches) > 0:
         pitches -= tone
 
     for pitch in pitches:
@@ -75,8 +78,8 @@ def tempo_making(interval, onSeqout):
 def note_making(tempo_list, chord_idx, chord_step):
     chord_selected = chords[chord_idx]
     note_list = []  # struct [idx, pitch1, pitch2 ... ] keep to end fo music
-    if hparam.song_tone>5:
-        chord_step-=12 #offset tone complimentation
+    if hparam.song_tone > 5:
+        chord_step -= 12  # offset tone complimentation
 
     note_list.append(
         [0, chord_selected[0] + chord_step - 12 + hparam.song_tone, chord_selected[0] + chord_step + hparam.song_tone,

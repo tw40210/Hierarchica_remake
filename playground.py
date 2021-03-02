@@ -18,22 +18,12 @@ import midi2audio
 from midi2audio import FluidSynth
 import math
 
-lat_long1 =np.array([20, 123])
-theta, d = 90* math.pi / 180, 50
-R = 6357
-lat_long2 = [21, 124]
-
-lat_long1 = lat_long1 * math.pi / 180
-
-lat2 = math.asin(
-    (math.sin(lat_long1[0]) * math.cos(d / R)) + (math.cos(lat_long1[0]) * math.cos(theta) * math.sin(d / R)))
-long2 = lat_long1[1] + math.atan((math.cos(lat_long1[0]) * math.sin(theta) * math.sin(d / R)) / (
-            math.cos(d / R) - (math.sin(lat_long1[0]) * math.sin(lat2))))
+import accompaniment
 
 
+print( np.array(accompaniment.chords[6])%12)
 
-print(lat2* 180  / math.pi,long2* 180  / math.pi )
-print(lat2,long2 )
+
 # ##=================
 # for midifile in os.listdir("midi_check"):
 #     if ".mid" in midifile:

@@ -771,16 +771,20 @@ def read_sheetlabel(path):
 
     with open(path, 'r') as gt_file:
         tempo_count=0
+        tmp_list=[]
         for line in gt_file.readlines():
             data= line.split(',')
+            if data[3].strip()!="0":
+                tmp_list.append(data[3].strip())
             if data[1]=="D":
                 downbeats.append(tempo_count)
 
             tempo_count+=int(data[0])
             if tempo_count>=16:
-                gt_sheetlabel.append([downbeats, data[2].strip()])
+                gt_sheetlabel.append([downbeats, data[2].strip(),tmp_list])
                 tempo_count = 0
                 downbeats = []
+                tmp_list = []
 
     return gt_sheetlabel
 

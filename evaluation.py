@@ -5,6 +5,7 @@ import hparam
 import os
 from utils import signal_sampletest_stream, rawout2interval_picth, get_Resnet,read_sheetlabel
 import torch
+import accompaniment
 
 
 def soloCliptest(file_path,model, RATE=16000):
@@ -44,8 +45,10 @@ def gt_midimatch(gt_txtpath, est_npypath):
             if beat in gt_nparray[idx][0]:
                 beats_correct+=1
             beats_total+=1
-        if est_nparray[idx][1]==gt_nparray[idx][1]:
-            chord_correct+=1
+        for note_pitch in gt_nparray[idx][2]:
+            aa = np.array(accompaniment.chords[accompaniment.chord_index_inv[est_nparray[idx][1]]]) % 12
+            if int(note_pitch) in np.array(accompaniment.chords[ accompaniment.chord_index_inv[est_nparray[idx][1]]  ]) % 12: # check if pitch in selected chord
+                chord_correct+=1
         chord_total+=1
 
     return beats_correct/beats_total, chord_correct/chord_total
@@ -114,7 +117,7 @@ if __name__ == '__main__':
     gt_path = "Jay Chou_Sunny Day_vocal.txt"
     est_path = "midi_record/Jay Chou_Sunny Day_vocal.npy"
 
-    # print(gt_midimatch(gt_path, est_path))
+    print(gt_midimatch(gt_path, est_path))
 
 
     output_integration("midi_check", "wav_check")
