@@ -45,6 +45,12 @@ def gt_midimatch(gt_txtpath, est_npypath):
             if beat in gt_nparray[idx][0]:
                 beats_correct+=1
             beats_total+=1
+
+        # for note_pitch in gt_nparray[idx][2]:
+        #     aa = np.array(accompaniment.chords[accompaniment.chord_index_inv[gt_nparray[idx][1]]]) % 12
+        #     if int(note_pitch) in np.array(accompaniment.chords[ accompaniment.chord_index_inv[gt_nparray[idx][1]]  ]) % 12: # check if pitch in selected chord
+        #         chord_correct+=1
+
         for note_pitch in gt_nparray[idx][2]:
             aa = np.array(accompaniment.chords[accompaniment.chord_index_inv[est_nparray[idx][1]]]) % 12
             if int(note_pitch) in np.array(accompaniment.chords[ accompaniment.chord_index_inv[est_nparray[idx][1]]  ]) % 12: # check if pitch in selected chord
@@ -120,4 +126,4 @@ if __name__ == '__main__':
     print(gt_midimatch(gt_path, est_path))
 
 
-    output_integration("midi_check", "wav_check")
+    # output_integration("midi_check", "wav_check")

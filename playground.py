@@ -17,9 +17,27 @@ from accompaniment import chord_probability, chord_predict
 import midi2audio
 from midi2audio import FluidSynth
 import math
-
+from resnest import resnest50
+import torch
 import accompaniment
+from thop import profile
+import torch.nn as nn
+from torchstat import stat
 
+
+input = torch.randn(10, 9, 174, 19)
+# input = torch.randn(10, 3, 224, 224)
+model = resnest50(channel=9, num_classes=6)
+PATH = "resnest_model.pth"
+# torch.save(model.state_dict(), PATH)
+
+x = model(input)
+
+macs, params = profile(model, inputs=(input, ))
+
+stat(model, (9, 174, 19))
+
+print(macs, params)
 
 print( np.array(accompaniment.chords[6])%12)
 

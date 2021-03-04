@@ -606,6 +606,7 @@ def signal_sampletest_stream(input_x, past_buffer, model=None, writer_in=None, t
     if not timestep:
         timestep = 0
 
+    model = model.to(device)
     model.eval()
     count = 0
 
@@ -630,7 +631,7 @@ def signal_sampletest_stream(input_x, past_buffer, model=None, writer_in=None, t
         curr_clip = curr_clip.view(channel, 174, -1).float()
         curr_clip = curr_clip.unsqueeze(0)
         curr_clip = curr_clip.to(device)
-        model = model.to(device)
+
         out_label = model(curr_clip)
         out_label = out_label.squeeze(0).squeeze(0).cpu().detach().numpy()
 

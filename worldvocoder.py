@@ -13,6 +13,7 @@ import pygame
 import pygame.mixer
 from time import sleep
 import threading
+import accompaniment
 from accompaniment import tempo_making, note_making, chord_recongnize, chord_predict
 import os
 from evaluation import output_integration
@@ -66,7 +67,7 @@ def midi_record(tempo_list, chord_next, midirecord):
     for idx in range(tempo_list.shape[0]):
         if tempo_list[idx] == 1:   # 16-th to 32-th to fit gt_midi
             beats.append(idx*2)
-    midirecord.append([beats, chord_index[chord_next]])
+    midirecord.append([beats, accompaniment.chord_index[chord_next]])
 
 
 def play_midi():
