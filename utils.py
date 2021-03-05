@@ -502,86 +502,88 @@ def testset_evaluation(path, f_path, model=None, writer_in=None, timestep=None, 
     model.eval()
     count = 0
     print("testing on testset for on/off_F1\n")
-    for index in range(len(features)):
-        # if count<3:
-        #     count += 1
-        #     continue
+    with torch.no_grad():
+        for index in range(len(features)):
+            # if count<3:
+            #     count += 1
+            #     continue
 
-        if count > 4:  # shorten test time by sampling
-            break
-        record = []
-        features_full = np.load(features[index])
-        label_path = str(pathlib.Path(labels[index]).parent / (
-                pathlib.Path(features[index]).stem.split('.')[0] + ".notes.Corrected"))
-        wav_path = str(pathlib.Path(labels[index]).parent / (
-                pathlib.Path(features[index]).stem.split('.')[0] + ".wav"))
-        label_note = read_notefile(label_path)
-        gt_label_sec_on, gt_label_sec_off = note2onoff_sec(label_note)
+            # if count > 4:  # shorten test time by sampling
+            #     break
+            record = []
+            features_full = np.load(features[index])
+            label_path = str(pathlib.Path(labels[index]).parent / (
+                    pathlib.Path(features[index]).stem.split('.')[0] + ".notes.Corrected"))
+            wav_path = str(pathlib.Path(labels[index]).parent / (
+                    pathlib.Path(features[index]).stem.split('.')[0] + ".wav"))
+            label_note = read_notefile(label_path)
+            gt_label_sec_on, gt_label_sec_off = note2onoff_sec(label_note)
 
-        label_note, label_pitch = note2timestep(label_note)
-        label_note = np.array(label_note)
-        label_pitch = np.array(label_pitch)
+            label_note, label_pitch = note2timestep(label_note)
+            label_note = np.array(label_note)
+            label_pitch = np.array(label_pitch)
 
-        # cut muted tail from feature
-        features_full = features_full[:, :label_note.shape[0]]
-        # pad 9 zero steps in both head and tail
-        zero_pad = np.zeros((features_full.shape[0], 9))
-        features_full = np.concatenate((zero_pad, features_full), axis=1)
-        features_full = np.concatenate((features_full, zero_pad), axis=1)
-        features_full = abs(features_full)
-        features_full = np.power(features_full / features_full.max(), hparam.gamma_mu)  # normalize &gamma compression
+            # cut muted tail from feature
+            features_full = features_full[:, :label_note.shape[0]]
+            # pad 9 zero steps in both head and tail
+            zero_pad = np.zeros((features_full.shape[0], 9))
+            features_full = np.concatenate((zero_pad, features_full), axis=1)
+            features_full = np.concatenate((features_full, zero_pad), axis=1)
+            features_full = abs(features_full)
+            features_full = np.power(features_full / features_full.max(), hparam.gamma_mu)  # normalize &gamma compression
 
-        for test_step in range(features_full.shape[1] - 18):
-            curr_clip = features_full[:, test_step:test_step + 19]
-            curr_clip = torch.from_numpy(curr_clip)
-            curr_clip = curr_clip.view(channel, 174, -1).float()
-            curr_clip = curr_clip.unsqueeze(0)
-            curr_clip = curr_clip.to(device)
-            model = model.to(device)
-            out_label = model(curr_clip)
-            out_label = out_label.squeeze(0).squeeze(0).cpu().detach().numpy()
+            for test_step in range(features_full.shape[1] - 18):
+                curr_clip = features_full[:, test_step:test_step + 19]
+                curr_clip = torch.from_numpy(curr_clip)
+                curr_clip = curr_clip.view(channel, 174, -1).float()
+                curr_clip = curr_clip.unsqueeze(0)
+                curr_clip = curr_clip.to(device)
+                model = model.to(device)
+                out_label = model(curr_clip)
+                out_label = out_label.squeeze(0).squeeze(0).cpu().detach().numpy()
 
-            record.append(out_label)
+                record.append(out_label)
 
-        record = np.array(record)
-        print(features[index])
-        est_intervals, _, = Smooth_sdt6(record)
-        # est_labels = output2label(record, is_batch=False, is_nparray=True)
-        # est_label_sec_on, est_label_sec_off = timestep2second(est_labels)
-        est_smooth_label_sec_on = []
-        est_smooth_label_sec_off = []
-        for interval in est_intervals:
-            est_smooth_label_sec_on.append(interval[0])
-            est_smooth_label_sec_off.append(interval[1])
-        est_smooth_label_sec_on = np.array(est_smooth_label_sec_on)
-        est_smooth_label_sec_off = np.array(est_smooth_label_sec_off)
+            record = np.array(record)
+            print(features[index])
+            est_intervals, _, = Smooth_sdt6(record)
+            # est_labels = output2label(record, is_batch=False, is_nparray=True)
+            # est_label_sec_on, est_label_sec_off = timestep2second(est_labels)
+            est_smooth_label_sec_on = []
+            est_smooth_label_sec_off = []
+            for interval in est_intervals:
+                est_smooth_label_sec_on.append(interval[0])
+                est_smooth_label_sec_off.append(interval[1])
+            est_smooth_label_sec_on = np.array(est_smooth_label_sec_on)
+            est_smooth_label_sec_off = np.array(est_smooth_label_sec_off)
 
-        # ===== pitch trace
-        est_pitch = interval2pitch_in_note(est_intervals, wavfile=wav_path)
+            # ===== pitch trace
+            est_pitch = interval2pitch_in_note(est_intervals, wavfile=wav_path)
 
-        gt_interval_array = onoffarray2interval(gt_label_sec_on, gt_label_sec_off)
-        gt_notes = gt_pitch_in_note(gt_interval_array, label_pitch)
+            gt_interval_array = onoffarray2interval(gt_label_sec_on, gt_label_sec_off)
+            gt_notes = gt_pitch_in_note(gt_interval_array, label_pitch)
 
-        on_F, on_P, on_R = mir_eval.onset.f_measure(gt_label_sec_on, est_smooth_label_sec_on)
-        off_F, off_P, off_R = mir_eval.onset.f_measure(gt_label_sec_off, est_smooth_label_sec_off)
-        notes_evaluation = mir_eval.transcription.evaluate(gt_interval_array, gt_notes, est_intervals, est_pitch)
+            on_F, on_P, on_R = mir_eval.onset.f_measure(gt_label_sec_on, est_smooth_label_sec_on)
+            off_F, off_P, off_R = mir_eval.onset.f_measure(gt_label_sec_off, est_smooth_label_sec_off)
+            notes_evaluation = mir_eval.transcription.evaluate(gt_interval_array, gt_notes, est_intervals, est_pitch)
 
-        # note_precision= notes_evaluation["Precision"]
-        # note_recall = notes_evaluation["Recall"]
-        note_F = notes_evaluation["F-measure"]
+            # note_precision= notes_evaluation["Precision"]
+            # note_recall = notes_evaluation["Recall"]
+            note_F = notes_evaluation["F-measure"]
 
-        if is_plot:
-            plot_note(gt_interval_array, gt_notes, est_intervals, est_pitch)
+            if is_plot:
+                plot_note(gt_interval_array, gt_notes, est_intervals, est_pitch)
 
-        sum_on_F1 += on_F
-        sum_off_F1 += off_F
-        sum_note_F += note_F
-        count += 1
-        print(f"smooth_on_F1: {on_F}, smooth_off_F1: {off_F}, note_F: {note_F}")
+            sum_on_F1 += on_F
+            sum_off_F1 += off_F
+            sum_note_F += note_F
+            count += 1
+            print(f"smooth_on_F1: {on_F}, smooth_off_F1: {off_F}, note_F: {note_F}")
 
     writer.add_scalar(f'scalar/onoff/on_F1', sum_on_F1 / count, timestep)
     writer.add_scalar(f'scalar/onoff/off_F1', sum_off_F1 / count, timestep)
     writer.add_scalar(f'scalar/onoff/note_F', sum_note_F / count, timestep)
+    print(f"ALL: smooth_on_F1: {sum_on_F1 / count}, smooth_off_F1: {sum_off_F1 / count}, note_F: {sum_note_F / count}")
 
     #
     # writer.add_scalars(f"scalar\\onoff_F1", {'on_F1': sum_on_F1 / count, 'off_F1': sum_off_F1 / count}, timestep)
@@ -664,44 +666,45 @@ def whole_song_sampletest(path, f_path, model=None, writer_in=None, timestep=Non
 
     model.eval()
     count = 0
-    for index in range(len(features)):
-        record = []
+    with torch.no_grad():
+        for index in range(len(features)):
+            record = []
 
-        features_full = np.load(features[index])
+            features_full = np.load(features[index])
 
-        a = features[index]
-        label_path = str(pathlib.Path(labels[index]).parent / (
-                pathlib.Path(features[index]).stem.split('.')[0] + ".notes.Corrected"))
+            a = features[index]
+            label_path = str(pathlib.Path(labels[index]).parent / (
+                    pathlib.Path(features[index]).stem.split('.')[0] + ".notes.Corrected"))
 
-        label_note = read_notefile(label_path)
-        label_note, label_pitch = note2timestep(label_note)
-        label_note = np.array(label_note)
-        label_pitch = np.array(label_pitch)
+            label_note = read_notefile(label_path)
+            label_note, label_pitch = note2timestep(label_note)
+            label_note = np.array(label_note)
+            label_pitch = np.array(label_pitch)
 
-        # cut muted tail from feature
-        features_full = features_full[:, :label_note.shape[0]]
-        # pad 9 zero steps in both head and tail
-        zero_pad = np.zeros((features_full.shape[0], 9))
-        features_full = np.concatenate((zero_pad, features_full), axis=1)
-        features_full = np.concatenate((features_full, zero_pad), axis=1)
-        features_full = abs(features_full)
-        features_full = np.power(features_full / features_full.max(), hparam.gamma_mu)  # normalize &gamma compression
+            # cut muted tail from feature
+            features_full = features_full[:, :label_note.shape[0]]
+            # pad 9 zero steps in both head and tail
+            zero_pad = np.zeros((features_full.shape[0], 9))
+            features_full = np.concatenate((zero_pad, features_full), axis=1)
+            features_full = np.concatenate((features_full, zero_pad), axis=1)
+            features_full = abs(features_full)
+            features_full = np.power(features_full / features_full.max(), hparam.gamma_mu)  # normalize &gamma compression
 
-        for test_step in range(features_full.shape[1] - 18):
-            curr_clip = features_full[:, test_step:test_step + 19]
-            curr_clip = torch.from_numpy(curr_clip)
-            curr_clip = curr_clip.contiguous().view(channel, 174, -1).float()
-            curr_clip = curr_clip.unsqueeze(0)
-            curr_clip = curr_clip.to(device)
-            model = model.to(device)
-            out_label = model(curr_clip)
-            out_label = out_label.squeeze(0).squeeze(0).cpu().detach().numpy()
+            for test_step in range(features_full.shape[1] - 18):
+                curr_clip = features_full[:, test_step:test_step + 19]
+                curr_clip = torch.from_numpy(curr_clip)
+                curr_clip = curr_clip.contiguous().view(channel, 174, -1).float()
+                curr_clip = curr_clip.unsqueeze(0)
+                curr_clip = curr_clip.to(device)
+                model = model.to(device)
+                out_label = model(curr_clip)
+                out_label = out_label.squeeze(0).squeeze(0).cpu().detach().numpy()
 
-            record.append(out_label)
-            # if len(record) > hparam.whole_song_max_len:
-            #     print(f"{label_path} OK")
-            #     break
-            count += 1
+                record.append(out_label)
+                # if len(record) > hparam.whole_song_max_len:
+                #     print(f"{label_path} OK")
+                #     break
+                count += 1
 
         record = np.array(record)
 
@@ -1174,17 +1177,22 @@ def plot_note(gt_interval_array, gt_notes, est_intervals, est_pitch):
 
 
 if __name__ == '__main__':
-    path = "data/test/EvaluationFramework_ISMIR2014/DATASET"
-    f_path = "data/test/Process_data_S1W743HP/FEAT"
+    path = 'data/test/EvaluationFramework_ISMIR2014/DATASET'
+    f_path = 'data/test/Process_data/FEAT'
 
     onset = [0.1, 0.256, 0.279, 0.336, 0.469, 0.53]
     offset = [0.01, 0.23, 0.266, 0.267, 0.39, 0.4]
 
-    model = get_Resnet(channel=hparam.FEAT_channel).to(device)
-    model.load_state_dict(torch.load("checkpoint/1227_748HP.pth"))
+    # model = get_Resnet(channel=hparam.FEAT_channel).to(device)
+    # model.load_state_dict(torch.load("checkpoint/1227_748HP.pth"))
+    from resnest import resnest50
+
+    model = resnest50(channel=9, num_classes=6).to(device)
+    model.load_state_dict(torch.load("checkpoint/3690.pth"))
+    model.eval()
     print("load OK")
 
-    testset_evaluation(path, f_path, model=model, is_plot=True, channel=hparam.FEAT_channel)
+    testset_evaluation(path, f_path, model=model, timestep=0, channel=hparam.FEAT_channel)
     #
     # testsample_path = hparam.testsample_path
     # testsample_f_path = hparam.testsample_f_path

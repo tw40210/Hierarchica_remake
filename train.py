@@ -13,9 +13,9 @@ import hparam
 from dataset import mydataset, Random_volume
 from model import get_BCE_loss
 from utils import get_accuracy, whole_song_sampletest, Logger, get_Resnet, testset_evaluation, testset_evaluation_train
+from resnest import resnest50
 
-
-tensor_comment = "baseline_S1W743version_simple_detail"
+tensor_comment = "baseline_resnest_l2gruall"
 SEED=0
 random.seed(SEED)
 np.random.seed(SEED)
@@ -49,8 +49,9 @@ def train():
 
 
 
-    model= get_Resnet(channel=hparam.FEAT_channel).to(device)
-    # model.load_state_dict(torch.load("standard_checkpoint/1227_baselinesimpletoogood.pth"))
+    # model= get_Resnet(channel=hparam.FEAT_channel).to(device)
+    model = resnest50(channel=9, num_classes=6).to(device)
+    # model.load_state_dict(torch.load("checkpoint/3690.pth"))
     # print("load OK")
 
     optimizer = optim.RMSprop(model.parameters(), lr=hparam.lr, weight_decay=0, momentum=0.9)
@@ -85,19 +86,19 @@ def train():
                     test_sumloss = 0
                     acc_sumloss = 0
                     batch_count = 0
+                    with torch.no_grad():
+                        for features_full, label_note in test_dataloader:
+                            for clip_id in range(features_full.shape[-1] // 19):
+                                features_full_clip = features_full[:, :, :, clip_id * 19:(clip_id + 1) * 19].to(device)
+                                label_note_clip = label_note[:, clip_id:clip_id + 1, :].to(device)
+                                out_label = model(features_full_clip)
 
-                    for features_full, label_note in test_dataloader:
-                        for clip_id in range(features_full.shape[-1] // 19):
-                            features_full_clip = features_full[:, :, :, clip_id * 19:(clip_id + 1) * 19].to(device)
-                            label_note_clip = label_note[:, clip_id:clip_id + 1, :].to(device)
-                            out_label = model(features_full_clip)
+                                test_loss = get_BCE_loss(out_label, label_note_clip)
+                                test_sumloss+=test_loss
+                                test_acc = get_accuracy(out_label, label_note_clip)
 
-                            test_loss = get_BCE_loss(out_label, label_note_clip)
-                            test_sumloss+=test_loss
-                            test_acc = get_accuracy(out_label, label_note_clip)
-
-                            acc_sumloss+=test_acc
-                            batch_count+=1
+                                acc_sumloss+=test_acc
+                                batch_count+=1
 
 
                     avg_loss = test_sumloss/batch_count

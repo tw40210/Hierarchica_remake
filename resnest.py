@@ -97,7 +97,7 @@ class Bottleneck(nn.Module):
         self.bn1 = norm_layer(group_width)
         self.dropblock_prob = dropblock_prob
         self.radix = radix
-        self.avd = avd and (stride > 1 or is_first)
+        self.avd = avd and (stride != 1 or is_first)
         self.avd_first = avd_first
 
         if self.avd:
@@ -238,32 +238,34 @@ class ResNet(nn.Module):
         self.bn1 = norm_layer(self.inplanes)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
-        self.layer1 = self._make_layer(block, 64, layers[0], norm_layer=norm_layer, is_first=False)
-        self.layer2 = self._make_layer(block, 128, layers[1], stride=2, norm_layer=norm_layer)
-        if dilated or dilation == 4:
-            self.layer3 = self._make_layer(block, 256, layers[2], stride=1,
-                                           dilation=2, norm_layer=norm_layer,
-                                           dropblock_prob=dropblock_prob)
-            self.layer4 = self._make_layer(block, 512, layers[3], stride=1,
-                                           dilation=4, norm_layer=norm_layer,
-                                           dropblock_prob=dropblock_prob)
-        elif dilation==2:
-            self.layer3 = self._make_layer(block, 256, layers[2], stride=2,
-                                           dilation=1, norm_layer=norm_layer,
-                                           dropblock_prob=dropblock_prob)
-            self.layer4 = self._make_layer(block, 512, layers[3], stride=1,
-                                           dilation=2, norm_layer=norm_layer,
-                                           dropblock_prob=dropblock_prob)
-        else:
-            self.layer3 = self._make_layer(block, 256, layers[2], stride=2,
-                                           norm_layer=norm_layer,
-                                           dropblock_prob=dropblock_prob)
-            self.layer4 = self._make_layer(block, 512, layers[3], stride=2,
-                                           norm_layer=norm_layer,
-                                           dropblock_prob=dropblock_prob)
+        self.layer1 = self._make_layer(block, 64, layers[0], stride=(2,1), norm_layer=norm_layer, is_first=False)
+        self.layer2 = self._make_layer(block, 16, layers[1], stride=(2,1), norm_layer=norm_layer)
+        self.gru = nn.GRU(64*22,256,bidirectional=True )
+        # if dilated or dilation == 4:
+        #     self.layer3 = self._make_layer(block, 256, layers[2], stride=1,
+        #                                    dilation=2, norm_layer=norm_layer,
+        #                                    dropblock_prob=dropblock_prob)
+        #     # self.layer4 = self._make_layer(block, 512, layers[3], stride=1,
+        #     #                                dilation=4, norm_layer=norm_layer,
+        #     #                                dropblock_prob=dropblock_prob)
+        # elif dilation==2:
+        #     self.layer3 = self._make_layer(block, 256, layers[2], stride=2,
+        #                                    dilation=1, norm_layer=norm_layer,
+        #                                    dropblock_prob=dropblock_prob)
+        #     # self.layer4 = self._make_layer(block, 512, layers[3], stride=1,
+        #     #                                dilation=2, norm_layer=norm_layer,
+        #     #                                dropblock_prob=dropblock_prob)
+        # else:
+        #     self.layer3 = self._make_layer(block, 256, layers[2], stride=2,
+        #                                    norm_layer=norm_layer,
+        #                                    dropblock_prob=dropblock_prob)
+        #     # self.layer4 = self._make_layer(block, 512, layers[3], stride=2,
+        #     #                                norm_layer=norm_layer,
+        #     #                                dropblock_prob=dropblock_prob)
         self.avgpool = GlobalAvgPool2d()
         self.drop = nn.Dropout(final_drop) if final_drop > 0.0 else None
-        self.fc = nn.Linear(512 * block.expansion, num_classes)
+        self.fc = nn.Linear(64 * block.expansion, num_classes)
+        self.sigmoid = nn.Sigmoid()
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -332,19 +334,27 @@ class ResNet(nn.Module):
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
-        x = self.maxpool(x)
+        # x = self.maxpool(x)
 
         x = self.layer1(x)
         x = self.layer2(x)
-        x = self.layer3(x)
-        x = self.layer4(x)
-
+        # x = self.layer3(x)
+        # x = self.layer4(x)
+        x = x.view(x.size(0),-1,x.size(-1))
+        x = x.permute(2,0,1)
+        x, h = self.gru(x)
+        x = x.permute(1, 2, 0)
+        x = x.unsqueeze(2)
         x = self.avgpool(x)
+        x = x[:,:x.size(1)//2]+x[:,x.size(1)//2:]
         #x = x.view(x.size(0), -1)
-        x = torch.flatten(x, 1)
+        # x = torch.flatten(x, 1)
         if self.drop:
             x = self.drop(x)
         x = self.fc(x)
+
+        x = self.sigmoid(x)
+        x = x.unsqueeze(1)
 
         return x
 
