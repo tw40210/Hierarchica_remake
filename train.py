@@ -12,10 +12,10 @@ from tqdm import tqdm
 import hparam
 from dataset import mydataset, Random_volume
 from model import get_BCE_loss
-from utils import get_accuracy, whole_song_sampletest, Logger, get_Resnet, testset_evaluation, testset_evaluation_train
+from utils import get_accuracy, whole_song_sampletest, Logger, get_Resnet, testset_evaluation
 from resnest import resnest50
 
-tensor_comment = "baseline_resnest_l2gruall"
+tensor_comment ="origin_modelbase"  # "baseline_resnest_l2s4512gruall"
 SEED=0
 random.seed(SEED)
 np.random.seed(SEED)
@@ -49,8 +49,8 @@ def train():
 
 
 
-    # model= get_Resnet(channel=hparam.FEAT_channel).to(device)
-    model = resnest50(channel=9, num_classes=6).to(device)
+    model= get_Resnet(channel=hparam.FEAT_channel).to(device)
+    # model = resnest50(channel=9, num_classes=6).to(device)
     # model.load_state_dict(torch.load("checkpoint/3690.pth"))
     # print("load OK")
 
@@ -65,10 +65,14 @@ def train():
     ori_runlist = logger.get_runsdir()
     with SummaryWriter(comment=tensor_comment) as writer:
         new_rundir = logger.get_new_runsdir(ori_runlist)
-        logger.save_codebackup(hparam.modelcode_path, new_rundir)
+        for idx, code_path in enumerate(hparam.modelcode_path) :
+            logger.save_codebackup(code_path, new_rundir, index=idx)
+
+
         for epoch in range(hparam.epoch):
             bar = tqdm(train_dataloader)
             for features_full, label_note in bar :
+                model.train()
                 for clip_id in range(features_full.shape[-1]//19):
                     features_full_clip = features_full[:,:,:,clip_id*19:(clip_id+1)*19].to(device)
                     label_note_clip = label_note[:,clip_id:clip_id+1,:].to(device)

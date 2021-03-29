@@ -3,7 +3,7 @@ timestep=0.02
 batch_size=32
 num_workers=8
 randomsample_size=20
-epoch=8
+epoch=16
 lr = 0.0001
 
 step_to_test = 30
@@ -19,7 +19,7 @@ FEAT_futurepad=9
 label_threshold = 0.5
 
 runs_path = "runs"
-modelcode_path = "model.py"
+modelcode_path = ["model.py","resnest.py"]
 
 testsample_path = "data/test_sample/wav_label"
 testsample_f_path = "data/test_sample/Process_data_S1W743HP/FEAT"

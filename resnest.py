@@ -233,14 +233,15 @@ class ResNet(nn.Module):
                 conv_layer(stem_width, stem_width*2, kernel_size=3, stride=1, padding=1, bias=False, **conv_kwargs),
             )
         else:
-            self.conv1 = conv_layer(3, 64, kernel_size=7, stride=2, padding=3,
+            self.conv1 = conv_layer(3, 64, kernel_size=7, stride=(2,1), padding=3,
                                    bias=False, **conv_kwargs)
         self.bn1 = norm_layer(self.inplanes)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
-        self.layer1 = self._make_layer(block, 64, layers[0], stride=(2,1), norm_layer=norm_layer, is_first=False)
-        self.layer2 = self._make_layer(block, 16, layers[1], stride=(2,1), norm_layer=norm_layer)
-        self.gru = nn.GRU(64*22,256,bidirectional=True )
+        self.layer1 = self._make_layer(block, 64, layers[0], stride=(4,1), norm_layer=norm_layer, is_first=False)
+        self.layer2 = self._make_layer(block, 32, layers[1], stride=(4,1), norm_layer=norm_layer)
+        self.conv2 = nn.Conv2d(3, stem_width, kernel_size=3, stride=2, padding=1, bias=False)
+        self.gru = nn.GRU(768,512)
         # if dilated or dilation == 4:
         #     self.layer3 = self._make_layer(block, 256, layers[2], stride=1,
         #                                    dilation=2, norm_layer=norm_layer,
@@ -264,7 +265,7 @@ class ResNet(nn.Module):
         #     #                                dropblock_prob=dropblock_prob)
         self.avgpool = GlobalAvgPool2d()
         self.drop = nn.Dropout(final_drop) if final_drop > 0.0 else None
-        self.fc = nn.Linear(64 * block.expansion, num_classes)
+        self.fc = nn.Linear(128 * block.expansion, num_classes)
         self.sigmoid = nn.Sigmoid()
 
         for m in self.modules():
@@ -346,7 +347,7 @@ class ResNet(nn.Module):
         x = x.permute(1, 2, 0)
         x = x.unsqueeze(2)
         x = self.avgpool(x)
-        x = x[:,:x.size(1)//2]+x[:,x.size(1)//2:]
+        # x = x[:,:x.size(1)//2]+x[:,x.size(1)//2:]
         #x = x.view(x.size(0), -1)
         # x = torch.flatten(x, 1)
         if self.drop:
