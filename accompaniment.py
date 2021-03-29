@@ -1,5 +1,6 @@
 import numpy as np
 import hparam
+import random
 
 chords = [[0, 4, 7], [2, 5, 9], [4, 7, 11], [5, 9, 12], \
           [7, 11, 14], [-3, 0, 4], [-1, 2, 6]]
@@ -132,4 +133,15 @@ def chord_probability():
 
 
 def chord_predict(chord1, chord2, chord_prob_table):
-    return chord_prob_table[chord1, chord2, :].argmax()
+    current_list = chord_prob_table[chord1, chord2, :]
+    current_list/=current_list.sum()
+    rand = random.random()
+
+    count=0
+    for idx, prob in enumerate(current_list) :
+        if rand< count+prob:
+            return idx
+        else:
+            count+=prob
+
+    raise Exception("No chord chosen!")
