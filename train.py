@@ -15,7 +15,7 @@ from model import get_BCE_loss
 from utils import get_accuracy, whole_song_sampletest, Logger, get_Resnet, testset_evaluation
 from resnest import resnest50
 
-tensor_comment ="origin_modelbase"  # "baseline_resnest_l2s4512gruall"
+tensor_comment ="origin_resnet_l3"  # "baseline_resnest_l2s4512gruall"
 SEED=0
 random.seed(SEED)
 np.random.seed(SEED)
@@ -49,7 +49,7 @@ def train():
 
 
 
-    model= get_Resnet(channel=hparam.FEAT_channel).to(device)
+    model= get_Resnet(channel=hparam.FEAT_channel, is_simplified=True).to(device)
     # model = resnest50(channel=9, num_classes=6).to(device)
     # model.load_state_dict(torch.load("checkpoint/3690.pth"))
     # print("load OK")

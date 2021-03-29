@@ -3,7 +3,7 @@
 # import torch
 import os
 import numpy as np
-from utils import read_notefile, note2timestep, interval2pitch_in_note
+from utils import read_notefile, note2timestep, interval2pitch_in_note, get_Resnet
 import hparam
 import random
 import matplotlib.pyplot as plt
@@ -12,32 +12,31 @@ import pathlib
 import librosa
 from tqdm import tqdm
 import mir_eval
-import crepe
+
 from accompaniment import chord_probability, chord_predict
-import midi2audio
-from midi2audio import FluidSynth
 import math
 from resnest import resnest50
 import torch
 import accompaniment
 from thop import profile
-import torch.nn as nn
+# import torch.nn as nn
 from torchstat import stat
 
 
 input = torch.randn(10, 9, 174, 19)
 # input = torch.randn(10, 3, 224, 224)
-model = resnest50(channel=9, num_classes=6)
+# model = resnest50(channel=9, num_classes=6)
+model= get_Resnet(channel=hparam.FEAT_channel, is_simplified=True)
 PATH = "resnest_model.pth"
 # torch.save(model.state_dict(), PATH)
 
 x = model(input)
 
-macs, params = profile(model, inputs=(input, ))
+# macs, params = profile(model, inputs=(input, ))
 
 stat(model, (9, 174, 19))
 
-print(macs, params)
+# print(macs, params)
 
 print( np.array(accompaniment.chords[6])%12)
 

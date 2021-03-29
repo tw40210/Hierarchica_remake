@@ -11,7 +11,7 @@ from typing import Dict, List
 import os
 import torch
 from tqdm import tqdm
-from model import ResNet, BasicBlock, get_BCE_loss
+from model import ResNet, BasicBlock, get_BCE_loss, ResNet_simple
 import torch.nn as nn
 from tensorboardX import SummaryWriter
 import shutil
@@ -389,8 +389,11 @@ def Smooth_sdt6(predict_sdt, threshold=0.20, realtime=False, onstart_flag=False,
             len(Tpeaks) + AddingT)
 
 
-def get_Resnet(channel=9):
-    model = ResNet(BasicBlock, [2, 2, 2, 2])
+def get_Resnet(channel=9, is_simplified=False):
+    if is_simplified:
+        model = ResNet_simple(BasicBlock, [2, 2, 2, 2])
+    else:
+        model = ResNet(BasicBlock, [2, 2, 2, 2])
     num_fout = model.conv1.out_channels
     model.conv1 = nn.Conv2d(channel, num_fout, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3),
                             bias=False)
