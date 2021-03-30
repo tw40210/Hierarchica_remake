@@ -111,7 +111,7 @@ class ResNet_simple(nn.Module):
             norm_layer = nn.BatchNorm2d
         self._norm_layer = norm_layer
 
-        self.inplanes = 64
+        self.inplanes = 32
         self.dilation = 1
         if replace_stride_with_dilation is None:
             # each element in the tuple indicates if we should replace
@@ -128,22 +128,20 @@ class ResNet_simple(nn.Module):
         self.bn1 = norm_layer(self.inplanes)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
-        self.layer1 = self._make_layer(block, 64, layers[0])
-        self.layer2 = self._make_layer(block, 128, layers[1], stride=2,
+        self.layer1 = self._make_layer(block, 32, layers[0])
+        self.layer2 = self._make_layer(block, 64, layers[1], stride=2,
                                        dilate=replace_stride_with_dilation[0])
-        self.down_conv2 = nn.Conv2d(64, 128, kernel_size=(3, 3), stride=2, padding=(1, 1),
+        self.down_conv2 = nn.Conv2d(32, 64, kernel_size=(3, 3), stride=2, padding=(1, 1),
                                bias=False)
-        self.layer3 = self._make_layer(block, 128, layers[2], stride=3,
+        self.layer3 = self._make_layer(block, 32, layers[2], stride=3,
                                        dilate=replace_stride_with_dilation[1])
-        # self.down_conv3 = nn.Conv2d(128, 128, kernel_size=(3, 3), stride=3, padding=(1, 1),
-        #                        bias=False)
-        self.down_maxp3 = nn.MaxPool2d(kernel_size=3, stride=3, padding=1)
-
+        self.down_conv3 = nn.Conv2d(64, 32, kernel_size=(3, 3), stride=3, padding=(1, 1),
+                               bias=False)
         # self.layer4 = self._make_layer(block, 512, layers[3], stride=2,
         #                                dilate=replace_stride_with_dilation[2])
         self.avgpool = nn.AvgPool2d(kernel_size=(17, 1), stride=1, padding=0)
         self.dropout = nn.Dropout(0.5)
-        self.fc = nn.Linear(384, num_classes)
+        self.fc = nn.Linear(96, num_classes)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -207,7 +205,7 @@ class ResNet_simple(nn.Module):
         x2 = x
 
         x = self.layer3(x)
-        x = self.down_maxp3(x0) + self.down_maxp3(x1)  + x
+        x = self.down_conv3(x0) + self.down_conv3(x1)  + x
 
         x3 = x
 
