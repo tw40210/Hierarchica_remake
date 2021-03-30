@@ -133,15 +133,17 @@ class ResNet_simple(nn.Module):
                                        dilate=replace_stride_with_dilation[0])
         self.down_conv2 = nn.Conv2d(64, 128, kernel_size=(3, 3), stride=2, padding=(1, 1),
                                bias=False)
-        self.layer3 = self._make_layer(block, 256, layers[2], stride=3,
+        self.layer3 = self._make_layer(block, 128, layers[2], stride=3,
                                        dilate=replace_stride_with_dilation[1])
-        self.down_conv3 = nn.Conv2d(128, 256, kernel_size=(3, 3), stride=3, padding=(1, 1),
-                               bias=False)
+        # self.down_conv3 = nn.Conv2d(128, 128, kernel_size=(3, 3), stride=3, padding=(1, 1),
+        #                        bias=False)
+        self.down_maxp3 = nn.MaxPool2d(kernel_size=3, stride=3, padding=1)
+
         # self.layer4 = self._make_layer(block, 512, layers[3], stride=2,
         #                                dilate=replace_stride_with_dilation[2])
         self.avgpool = nn.AvgPool2d(kernel_size=(17, 1), stride=1, padding=0)
         self.dropout = nn.Dropout(0.5)
-        self.fc = nn.Linear(768, num_classes)
+        self.fc = nn.Linear(384, num_classes)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -205,7 +207,7 @@ class ResNet_simple(nn.Module):
         x2 = x
 
         x = self.layer3(x)
-        x = self.down_conv3(x0) + self.down_conv3(x1)  + x
+        x = self.down_maxp3(x0) + self.down_maxp3(x1)  + x
 
         x3 = x
 
