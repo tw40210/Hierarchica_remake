@@ -4,7 +4,7 @@ batch_size=32
 num_workers=8
 randomsample_size=20
 epoch=16
-lr = 0.00003
+lr = 0.0001
 
 step_to_test = 30
 step_to_save = 90

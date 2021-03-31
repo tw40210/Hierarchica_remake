@@ -15,7 +15,7 @@ from model import get_BCE_loss
 from utils import get_accuracy, whole_song_sampletest, Logger, get_Resnet, testset_evaluation
 from resnest import resnest50
 
-tensor_comment ="origin_resnet_l3densec16lr03"  # "baseline_resnest_l2s4512gruall"
+tensor_comment ="origin_resnet_l3densec8"  # "baseline_resnest_l2s4512gruall"
 SEED=0
 random.seed(SEED)
 np.random.seed(SEED)
