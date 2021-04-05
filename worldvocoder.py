@@ -33,7 +33,7 @@ RATE = 16000
 CHUNK = int((60 / song_bpm) * RATE * 2)
 FORMAT = pyaudio.paFloat32
 CHANNELS = 1
-
+bar_limit = (CHUNK / RATE)-0.3
 is_offline = True
 do_clean=True
 if do_clean:
@@ -49,7 +49,7 @@ if do_clean:
 
 
 if is_offline:
-    wavfile_path = "Almost Famous_vocals.wav"
+    wavfile_path = "TEST/shapeofyou.wav"
     wav_signal, sr = librosa.load(wavfile_path, sr=RATE)
 
 chord_index = {0: "C", 1: "D", 2: "E", 3: "F", 4: "G", 5: "A", 6: "B"}
@@ -78,7 +78,7 @@ def play_midi():
             pygame.mixer.music.play()
             while pygame.mixer.music.get_busy():
                 sleep(0.01)
-            SHOOT_SOUND.play()
+            # SHOOT_SOUND.play()
             play_lock = False
             print("Done!")
         else:
@@ -120,22 +120,23 @@ def create_MIDI(note_list, count=0, volume_para=1):
     MyMIDI.addTempo(track, time, bpm)
 
     if not is_offline:
-        delay = -0.5  # delay mainly by pygame load& play can't avoid so far because load will stop music
+        delay = 0  # delay mainly by pygame load& play can't avoid so far because load will stop music
     else:
         delay=0
 
     for note in note_list:
         beat_pos = note[0]
-        time = convert_seconds_to_quarter(beat_pos * 0.25, bpm)
-        duration = convert_seconds_to_quarter(end_time - time +delay, bpm)
-        new_observer = end_time - time +delay
+        beat_time=beat_pos * (end_time/8)
+        time = convert_seconds_to_quarter(beat_time, bpm)
+        duration = convert_seconds_to_quarter(end_time - beat_time +delay, bpm)
+        new_observer = end_time - beat_time +delay
         for idx in range(len(note)):
             if idx == 0:
                 continue
             if len(note)>2:
                 MyMIDI.addNote(track, channel, int(note[idx]), time, duration, volume)
             else:
-                MyMIDI.addNote(track, channel, int(note[idx]), time, duration, int(volume*0.6))
+                MyMIDI.addNote(track, channel, int(note[idx]), time, duration, int(volume*0.8))
 
     if not is_offline:
         MyMIDI.writeFile(memFile)
@@ -166,8 +167,8 @@ if not is_offline:
 count = 0
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-model = get_Resnet(hparam.FEAT_channel).to(device)
-model.load_state_dict(torch.load("standard_checkpoint/960_1030perform077.pth"))
+model = get_Resnet(hparam.FEAT_channel, is_simplified=True).to(device)
+model.load_state_dict(torch.load("standard_checkpoint/3150_on079l3dnesec8.pth"))
 print("load OK")
 
 buffer = np.zeros((hparam.FEAT_freqbin_num * hparam.FEAT_channel, hparam.FEAT_pastpad + hparam.FEAT_futurepad))
@@ -263,19 +264,19 @@ while True:
             if is_offline:
                 midi_record(tempo_list, chord_next, midirecord)
 
-    print(f"record: {chord_record}, temp: {chord_temp}")
+    # print(f"record: {chord_record}, temp: {chord_temp}")
 
-    print("volume_para: ", volume_cur_para/volume_ori_para)
-    print("tempo_list: ", tempo_list)
-    print("note_list: ", note_list)
+    # print("volume_para: ", volume_cur_para/volume_ori_para)
+    # print("tempo_list: ", tempo_list)
+    # print("note_list: ", note_list)
     mide_file = create_MIDI(note_list, count=count, volume_para=(volume_cur_para/volume_ori_para))
 
     print(count)
     if not is_offline:
         while True:
-
-            if not pygame.mixer.music.get_busy():  #
-
+            # print("time:", time.time() - music_start)
+            # if not pygame.mixer.music.get_busy() :  #
+            if time.time() - music_start> bar_limit:
                 SHOOT_SOUND.play()
 
                 pygame.mixer.music.load(mide_file)
@@ -283,7 +284,7 @@ while True:
                 print("music_dur: ", time.time() - music_start)
 
                 music_start = time.time()
-                load_flag = False
+                # load_flag = False
                 break
 
             else:

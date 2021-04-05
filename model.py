@@ -111,7 +111,7 @@ class ResNet_simple(nn.Module):
             norm_layer = nn.BatchNorm2d
         self._norm_layer = norm_layer
 
-        self.inplanes = 4
+        self.inplanes = 8
         self.dilation = 1
         if replace_stride_with_dilation is None:
             # each element in the tuple indicates if we should replace
@@ -128,20 +128,20 @@ class ResNet_simple(nn.Module):
         self.bn1 = norm_layer(self.inplanes)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
-        self.layer1 = self._make_layer(block, 4, layers[0])
-        self.layer2 = self._make_layer(block, 8, layers[1], stride=2,
+        self.layer1 = self._make_layer(block, 8, layers[0])
+        self.layer2 = self._make_layer(block, 16, layers[1], stride=2,
                                        dilate=replace_stride_with_dilation[0])
-        self.down_conv2 = nn.Conv2d(4, 8, kernel_size=(3, 3), stride=2, padding=(1, 1),
+        self.down_conv2 = nn.Conv2d(8, 16, kernel_size=(3, 3), stride=2, padding=(1, 1),
                                bias=False)
-        self.layer3 = self._make_layer(block, 4, layers[2], stride=3,
+        self.layer3 = self._make_layer(block, 8, layers[2], stride=3,
                                        dilate=replace_stride_with_dilation[1])
-        self.down_conv3 = nn.Conv2d(8, 4, kernel_size=(3, 3), stride=3, padding=(1, 1),
+        self.down_conv3 = nn.Conv2d(16, 8, kernel_size=(3, 3), stride=3, padding=(1, 1),
                                bias=False)
         # self.layer4 = self._make_layer(block, 512, layers[3], stride=2,
         #                                dilate=replace_stride_with_dilation[2])
         self.avgpool = nn.AvgPool2d(kernel_size=(17, 1), stride=1, padding=0)
         self.dropout = nn.Dropout(0.5)
-        self.fc = nn.Linear(12, num_classes)
+        self.fc = nn.Linear(24, num_classes)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):

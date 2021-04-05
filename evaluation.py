@@ -33,7 +33,8 @@ def gt_midimatch(gt_txtpath, est_npypath):
     beats_total =0
     beats_correct =0
     chord_total=0
-    chord_correct=0
+    chord_est_correct=0
+    chord_gt_correct=0
 
     if est_nparray.shape[0]> gt_nparray.shape[0]:
         midilength = gt_nparray.shape[0]
@@ -53,11 +54,16 @@ def gt_midimatch(gt_txtpath, est_npypath):
 
         for note_pitch in gt_nparray[idx][2]:
             aa = np.array(accompaniment.chords[accompaniment.chord_index_inv[est_nparray[idx][1]]]) % 12
+            b = note_pitch
             if int(note_pitch) in np.array(accompaniment.chords[ accompaniment.chord_index_inv[est_nparray[idx][1]]  ]) % 12: # check if pitch in selected chord
-                chord_correct+=1
-        chord_total+=1
+                chord_est_correct+=1
+            if int(note_pitch) in np.array(accompaniment.chords[ accompaniment.chord_index_inv[gt_nparray[idx][1]]  ]) % 12: # check if pitch in selected chord
+                chord_gt_correct+=1
 
-    return beats_correct/beats_total, chord_correct/chord_total
+            chord_total+=1
+
+
+    return beats_correct/beats_total, chord_est_correct/chord_total,chord_gt_correct/chord_total
 
 def output_integration(midi_dir, wav_dir):
     from midi2audio import FluidSynth
@@ -95,9 +101,8 @@ def output_integration(midi_dir, wav_dir):
         y, sr  = librosa.load(f'{wav_dir}/{wav_file}', sr=hparam.sr)
         wav_y = np.concatenate((wav_y, y), axis=0)
 
-    print(wav_y.max())
     wav_y/=wav_y.max()*4
-    print(wav_y.max())
+
 
     if wav_y.shape[0]> midiwav_y.shape[0]:
         wav_y = wav_y[:midiwav_y.shape[0]]
@@ -120,7 +125,7 @@ if __name__ == '__main__':
     # print("interval: ", interval)
     # print("fin")
 
-    gt_path = "Jay Chou_Sunny Day_vocal.txt"
+    gt_path = "TEST/Jay Chou_Sunny Day_vocal.txt"
     est_path = "midi_record/Jay Chou_Sunny Day_vocal.npy"
 
     print(gt_midimatch(gt_path, est_path))

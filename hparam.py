@@ -24,5 +24,5 @@ modelcode_path = ["model.py","resnest.py"]
 testsample_path = "data/test_sample/wav_label"
 testsample_f_path = "data/test_sample/Process_data_S1W743HP/FEAT"
 
-song_bpm = 54
-song_tone = 11
+song_bpm = 96
+song_tone = 4
