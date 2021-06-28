@@ -22,24 +22,29 @@ from thop import profile
 # import torch.nn as nn
 from torchstat import stat
 
+from midi2audio import FluidSynth
+import shutil
 
-input = torch.randn(10, 9, 174, 19)
-# input = torch.randn(10, 3, 224, 224)
-# model = resnest50(channel=9, num_classes=6)
-model= get_Resnet(channel=hparam.FEAT_channel, is_simplified=True)
-PATH = "resnest_model.pth"
-# torch.save(model.state_dict(), PATH)
+import gc
+import sys
+def bb():
+    pp = A()
+    return pp
 
-x = model(input)
+class A():
+    a=1
 
-# macs, params = profile(model, inputs=(input, ))
+c1 = A()
 
-stat(model, (9, 174, 19))
-
-# print(macs, params)
-
-print( np.array(accompaniment.chords[6])%12)
-
+for i in range(5):
+    c2=A()
+c3=bb()
+print(pp)
+print(sys.getrefcount(c2))
+print(sys.getrefcount(c3))
+del c2
+print(sys.getrefcount(c3))
+del c1
 
 # ##=================
 # for midifile in os.listdir("midi_check"):

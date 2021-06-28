@@ -10,6 +10,7 @@ chord_flow = [[4, 5, 3, 6, 2, 5, 1], [1, 6, 4, 5], [1, 4, 5, 1], [2, 5, 1, 4, 7,
 
 chord_index = {0: "C", 1: "D", 2: "E", 3: "F", 4: "G", 5: "A", 6: "B"}
 chord_index_inv = {"C": 0, "D": 1, "E": 2, "F": 3, "G": 4, "A": 5, "B": 6}
+eight_to_twelve_octave={0:-1, 1:0, 2:2, 3:4, 4:5, 5:7, 6:9, 7:11}
 
 
 def decompose_octave(pitch, tone):
@@ -52,16 +53,22 @@ def tempo_making(interval, onSeqout):
 
     tempo_list = np.zeros(8)  # separate  one clip to 8, 1 = downbeat ,2 = sub beat
     num_beats = interval.shape[0]
-    note_length = (60 / hparam.song_bpm) / 4
+    note_length = (60 / hparam.song_bpm) / 2 #8-th note as a unit
 
     if len(onSeqout) > 0:
         on_time = interval[onSeqout.argmax()][0]
-        if on_time % note_length < note_length // 2 + 1:  # to get the nearest beat in note
-            tempo_list[int(on_time // note_length)] = 1
-            downbeat = int(on_time // note_length)
-        elif on_time // note_length < tempo_list.shape[0] - 1:
-            tempo_list[int(on_time // note_length) + 1] = 1
-            downbeat = int(on_time // note_length) + 1
+        a = on_time % note_length
+        b = (on_time // note_length)*2
+
+        if (on_time // note_length)*2 >= tempo_list.shape[0] - 2 and on_time % note_length >= note_length / 2:
+            tempo_list[tempo_list.shape[0] - 1] = 1
+            downbeat = tempo_list.shape[0] - 1
+        elif on_time % note_length < note_length / 2 :  # to get the nearest beat in note
+            tempo_list[int((on_time // note_length)*2)] = 1
+            downbeat = int((on_time // note_length)*2)
+        elif on_time % note_length >= note_length / 2:  # to get the nearest beat in note
+            tempo_list[int((on_time // note_length)*2)+2] = 1
+            downbeat = int((on_time // note_length)*2)+2
         else:
             downbeat = 0
 

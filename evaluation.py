@@ -30,8 +30,10 @@ def gt_midimatch(gt_txtpath, est_npypath):
     est_nparray = np.load(est_npypath,allow_pickle=True)
     gt_nparray = np.array(read_sheetlabel(gt_txtpath))
 
-    beats_total =0
-    beats_correct =0
+    beats_est_total =0
+    beats_gt_total =0
+    beats_est_correct =0
+    beats_gt_correct = 0
     chord_total=0
     chord_est_correct=0
     chord_gt_correct=0
@@ -43,27 +45,28 @@ def gt_midimatch(gt_txtpath, est_npypath):
 
     for idx in range(midilength):
         for beat in est_nparray[idx][0]:
-            if beat in gt_nparray[idx][0]:
-                beats_correct+=1
-            beats_total+=1
-
-        # for note_pitch in gt_nparray[idx][2]:
-        #     aa = np.array(accompaniment.chords[accompaniment.chord_index_inv[gt_nparray[idx][1]]]) % 12
-        #     if int(note_pitch) in np.array(accompaniment.chords[ accompaniment.chord_index_inv[gt_nparray[idx][1]]  ]) % 12: # check if pitch in selected chord
-        #         chord_correct+=1
+            if beat in gt_nparray[idx][3]:
+                beats_est_correct+=1
+            beats_est_total+=1
+        for beat in [0,8]:
+            if beat in gt_nparray[idx][3]:
+                beats_gt_correct+=1
+            beats_gt_total+=1
 
         for note_pitch in gt_nparray[idx][2]:
+            note_pitch = accompaniment.eight_to_twelve_octave[int(note_pitch)]
             aa = np.array(accompaniment.chords[accompaniment.chord_index_inv[est_nparray[idx][1]]]) % 12
+            bb = np.array(accompaniment.chords[ accompaniment.chord_index_inv[gt_nparray[idx][1]]  ]) % 12
             b = note_pitch
-            if int(note_pitch) in np.array(accompaniment.chords[ accompaniment.chord_index_inv[est_nparray[idx][1]]  ]) % 12: # check if pitch in selected chord
+            if note_pitch in np.array(accompaniment.chords[ accompaniment.chord_index_inv[est_nparray[idx][1]]  ]) % 12: # check if pitch in selected chord
                 chord_est_correct+=1
-            if int(note_pitch) in np.array(accompaniment.chords[ accompaniment.chord_index_inv[gt_nparray[idx][1]]  ]) % 12: # check if pitch in selected chord
+            if note_pitch in np.array(accompaniment.chords[ accompaniment.chord_index_inv[gt_nparray[idx][1]]  ]) % 12: # check if pitch in selected chord
                 chord_gt_correct+=1
 
             chord_total+=1
 
 
-    return beats_correct/beats_total, chord_est_correct/chord_total,chord_gt_correct/chord_total
+    return beats_est_correct/beats_est_total, beats_gt_correct/beats_gt_total, chord_est_correct/chord_total,chord_gt_correct/chord_total
 
 def output_integration(midi_dir, wav_dir):
     from midi2audio import FluidSynth

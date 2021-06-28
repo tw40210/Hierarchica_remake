@@ -34,7 +34,7 @@ CHUNK = int((60 / song_bpm) * RATE * 2)
 FORMAT = pyaudio.paFloat32
 CHANNELS = 1
 bar_limit = (CHUNK / RATE)-0.3
-is_offline = True
+is_offline = False
 do_clean=True
 if do_clean:
     wav_folder="wav_check"
@@ -49,8 +49,9 @@ if do_clean:
 
 
 if is_offline:
-    wavfile_path = "TEST/shapeofyou.wav"
+    wavfile_path = "TEST/forgetme_2.wav"
     wav_signal, sr = librosa.load(wavfile_path, sr=RATE)
+    wav_signal = np.concatenate((wav_signal[-CHUNK*2:], wav_signal), axis=0)
 
 chord_index = {0: "C", 1: "D", 2: "E", 3: "F", 4: "G", 5: "A", 6: "B"}
 
@@ -164,7 +165,7 @@ if not is_offline:
 
     stream.start_stream()
 
-count = 0
+count = 1
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 model = get_Resnet(hparam.FEAT_channel, is_simplified=True).to(device)
@@ -173,8 +174,8 @@ print("load OK")
 
 buffer = np.zeros((hparam.FEAT_freqbin_num * hparam.FEAT_channel, hparam.FEAT_pastpad + hparam.FEAT_futurepad))
 wavform_buffer = np.zeros((int(RATE * hparam.timestep * hparam.FEAT_futurepad)))
-print("keyin anython to start")
-input()  # pause
+# print("keyin anython to start")
+# input()  # pause
 
 midirecord = []
 midi_playing = False
@@ -187,16 +188,27 @@ volume_cur_para =1
 chord_prob_table = np.load("chord_probability.npy")
 chord_next = 0
 
+time_cost=0
+iter_num=0
+max_time=[]
+
+
 music_start = time.time()
 while True:
 
     count += 1
     if not is_offline:
-        if count < 3:
+        if count < 4:
             clearBuffer(stream, CHUNK)
             # waitBuffer(int(CHUNK * 0.2))
         print("buffer to read: ", stream.get_read_available())
-        data = stream.read(CHUNK)
+        if(count==2):
+            data_load = stream.read(CHUNK)
+            data_load2 = stream.read(CHUNK)
+        else:
+            data_load = data_load2
+            data_load2 = data_cur
+        data_cur = stream.read(CHUNK)
     else:
         if count * CHUNK > len(wav_signal):
             midirecord = np.array(midirecord)
@@ -204,12 +216,14 @@ while True:
             print("Signal finished!")
             break
 
-        data = wav_signal[(count - 1) * CHUNK:count * CHUNK]
+        data_load = wav_signal[(count - 2) * CHUNK:(count - 1)  * CHUNK]
+        data_cur = wav_signal[(count) * CHUNK:(count +1)  * CHUNK]
 
     start = time.time()
-    data_float = np.fromstring(data, 'Float32')
+    data_float = np.fromstring(data_load, 'Float32')
+    data_float_cur = np.fromstring(data_cur, 'Float32')
 
-    if count==3:
+    if count==5:
         volume_ori_para = abs(data_float).mean()
 
     volume_cur_para = abs(data_float).mean()
@@ -221,12 +235,12 @@ while True:
     data_float = np.concatenate((wavform_buffer, data_float[:int(-RATE * hparam.timestep * (hparam.FEAT_pastpad))]),
                                 axis=0)  # adjust wav signal to match label
     wavform_buffer = padding_data_float
-    librosa.output.write_wav(f"wav_check/{count}.wav", data_float, sr=RATE)
+    librosa.output.write_wav(f"wav_check/{count}.wav", data_float_cur, sr=RATE)
     interval, pitches, onstart_flag, onSeqout = rawout2interval_picth(record, data_float, sr=RATE,
                                                                       onstart_flag=onstart_flag)
 
     tempo_list = tempo_making(interval, onSeqout)  # making accompaniment
-    if count % 2 == 1:
+    if count % 2 == 0:
         old_interval = interval.copy()
         old_pitches = pitches.copy()
 
@@ -264,12 +278,14 @@ while True:
             if is_offline:
                 midi_record(tempo_list, chord_next, midirecord)
 
-    # print(f"record: {chord_record}, temp: {chord_temp}")
-
-    # print("volume_para: ", volume_cur_para/volume_ori_para)
-    # print("tempo_list: ", tempo_list)
-    # print("note_list: ", note_list)
     mide_file = create_MIDI(note_list, count=count, volume_para=(volume_cur_para/volume_ori_para))
+
+    end = time.time()
+    print(end - start)
+    time_cost += end - start
+    iter_num+=1
+    if count>4:
+        max_time.append(end - start)
 
     print(count)
     if not is_offline:
@@ -292,8 +308,10 @@ while True:
 
     print(count)
     print(interval, pitches)
-    end = time.time()
-    print(end - start)
+
 
 if is_offline:
     output_integration("midi_check", "wav_check")
+    print(f"iter: {iter_num}, total time: {time_cost}, avg. time: {time_cost/iter_num}")
+    max_time = np.sort(np.array(max_time))
+    print("max time:", max_time[-10:])
